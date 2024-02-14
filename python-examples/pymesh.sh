@@ -1,0 +1,1 @@
+docker run -it --rm -v `pwd`:/code -w /code pymesh/pymesh python mesh.py
