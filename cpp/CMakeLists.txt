@@ -42,8 +42,4 @@ add_subdirectory(extern/vtk)
 
 # Include libraries
 add_subdirectory(kernel)
-add_subdirectory(solvers)
-add_subdirectory(maths)
 add_subdirectory(cfd_2d)
-add_subdirectory(homework)
-# add_subdirectory(pybind)
