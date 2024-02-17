@@ -2,7 +2,7 @@ project(cfd_2d)
 
 find_package(Eigen3 REQUIRED COMPONENTS CXX)
 
-set(CFD_SOURCES
+set(CFD_2D_SOURCES
     src/cfd_params.cpp
     src/cfd.cpp
     src/vtk.cpp
@@ -14,7 +14,7 @@ set(CFD_SOURCES
 )
 
 # Compile the CFD library
-add_library(cfd_2d STATIC ${CFD_SOURCES})
+add_library(cfd_2d STATIC ${CFD_2D_SOURCES})
 target_compile_options(cfd_2d PRIVATE)
 target_include_directories(cfd_2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(

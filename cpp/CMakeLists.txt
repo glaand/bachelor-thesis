@@ -43,3 +43,4 @@ add_subdirectory(extern/vtk)
 # Include libraries
 add_subdirectory(kernel)
 add_subdirectory(cfd_2d)
+add_subdirectory(cfd_3d)
