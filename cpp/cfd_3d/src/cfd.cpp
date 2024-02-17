@@ -484,6 +484,68 @@ namespace CFD {
             solver_name = "Jacobi";
             std::cout << "Solver: Jacobi (" << this->grid.imax << "x" << this->grid.jmax << "x" << this->grid.kmax << ")" << std::endl;
         }
+        else if (this->solver_type == SolverType::MULTIGRID_JACOBI) {
+            pressure_solver = &FluidSimulation::solveWithMultigridJacobi;
+            solver_name = "Multigrid Jacobi";
+
+            // check if imax, jmax, and kmax are powers of 2, if not throw exception
+            if ((this->grid.imax & (this->grid.imax - 1)) != 0 || 
+                (this->grid.jmax & (this->grid.jmax - 1)) != 0 ||
+                (this->grid.kmax & (this->grid.kmax - 1)) != 0) {
+                throw std::invalid_argument("imax, jmax, and kmax must be powers of 2");
+            }
+
+            int imax_levels = std::log2(this->grid.imax);
+            int jmax_levels = std::log2(this->grid.jmax);
+            int kmax_levels = std::log2(this->grid.kmax);
+            int levels = std::min(imax_levels, std::min(jmax_levels, kmax_levels));
+
+            this->multigrid_hierarchy = new MultigridHierarchy(levels, &this->grid);
+
+            std::cout << "Solver: Multigrid Jacobi (" << this->grid.imax << "x" << this->grid.jmax << "x" << this->grid.kmax << ")" << std::endl;
+        }
+        else if (this->solver_type == SolverType::CONJUGATED_GRADIENT) {
+            pressure_solver = &FluidSimulation::solveWithConjugatedGradient;
+            solver_name = "Conjugated Gradient";
+
+            // check if imax, jmax, and kmax are powers of 2, if not throw exception
+            if ((this->grid.imax & (this->grid.imax - 1)) != 0 || 
+                (this->grid.jmax & (this->grid.jmax - 1)) != 0 ||
+                (this->grid.kmax & (this->grid.kmax - 1)) != 0) {
+                throw std::invalid_argument("imax, jmax, and kmax must be powers of 2");
+            }
+
+            int imax_levels = std::log2(this->grid.imax);
+            int jmax_levels = std::log2(this->grid.jmax);
+            int kmax_levels = std::log2(this->grid.kmax);
+            int levels = std::min(imax_levels, std::min(jmax_levels, kmax_levels));
+
+            this->multigrid_hierarchy = new MultigridHierarchy(levels, &this->grid);
+            std::cout << "Solver: Conjugated Gradient (" << this->grid.imax << "x" << this->grid.jmax << "x" << this->grid.kmax << ")" << std::endl;
+        }
+        else if (this->solver_type == SolverType::MULTIGRID_PCG) {
+            pressure_solver = &FluidSimulation::solveWithMultigridPCG;
+            solver_name = "Multigrid PCG";
+
+            // check if imax, jmax, and kmax are powers of 2, if not throw exception
+            if ((this->grid.imax & (this->grid.imax - 1)) != 0 || 
+                (this->grid.jmax & (this->grid.jmax - 1)) != 0 ||
+                (this->grid.kmax & (this->grid.kmax - 1)) != 0) {
+                throw std::invalid_argument("imax, jmax, and kmax must be powers of 2");
+            }
+
+            int imax_levels = std::log2(this->grid.imax);
+            int jmax_levels = std::log2(this->grid.jmax);
+            int kmax_levels = std::log2(this->grid.kmax);
+            int levels = std::min(imax_levels, std::min(jmax_levels, kmax_levels));
+
+            this->preconditioner = StaggeredGrid(this->grid.imax, this->grid.jmax, this->grid.kmax, this->grid.xlength, this->grid.ylength, this->grid.zlength);
+
+            this->multigrid_hierarchy = new MultigridHierarchy(levels, &this->grid);
+            this->multigrid_hierarchy_preconditioner = new MultigridHierarchy(levels, &this->preconditioner);
+
+            std::cout << "Solver: Multigrid PCG (" << this->grid.imax << "x" << this->grid.jmax << "x" << this->grid.kmax << ")" << std::endl;
+        }
         else {
             throw std::invalid_argument("Invalid solver type");
         }
@@ -517,8 +579,8 @@ namespace CFD {
             this->setBoundaryConditionsW();
             this->setBoundaryConditionsVelocityGeometry();
             this->setBoundaryConditionsPGeometry();
-            if (this->t - last_saved >= this->save_interval) {
                 std::cout << "Solver: " << solver_name << " t: " << this->t << " dt: " << this->dt << " res: " << this->res_norm << std::endl;
+            if (this->t - last_saved >= this->save_interval) {
                 this->grid.interpolateVelocity();
                 saveVTK(this);
                 last_saved += this->save_interval;

@@ -6,11 +6,11 @@ set(CFD_3d_SOURCES
     src/cfd_params.cpp
     src/cfd.cpp
     src/vtk.cpp
-    #src/multigrid.cpp
+    src/multigrid.cpp
     src/solvers/jacobi.cpp
-    #src/solvers/multigrid_jacobi.cpp
-    #src/solvers/conjugate_gradient.cpp
-    #src/solvers/multigrid_pcg.cpp
+    src/solvers/multigrid_jacobi.cpp
+    src/solvers/conjugate_gradient.cpp
+    src/solvers/multigrid_pcg.cpp
 )
 
 # Compile the CFD library
