@@ -50,10 +50,10 @@ target_link_libraries(lid_driven_cavity_3d cfd_3d Eigen3::Eigen kernel)
 #target_link_libraries(flow_over_step_3d cfd_3d Eigen3::Eigen kernel)
 
 # Karman Vortex Street 3d
-#add_executable(karman_vortex_street_3d prog/karman_vortex_street_3d.cpp)
-#target_compile_options(karman_vortex_street_3d PRIVATE -fPIC)
-#target_include_directories(karman_vortex_street_3d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-#target_link_libraries(karman_vortex_street_3d cfd_3d Eigen3::Eigen kernel)
+add_executable(karman_vortex_street_3d prog/karman_vortex_street_3d.cpp)
+target_compile_options(karman_vortex_street_3d PRIVATE -fPIC)
+target_include_directories(karman_vortex_street_3d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(karman_vortex_street_3d cfd_3d Eigen3::Eigen kernel)
 
 # Plane Shear Flow 3d
 #add_executable(plane_shear_flow_3d prog/plane_shear_flow_3d.cpp)

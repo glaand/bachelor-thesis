@@ -18,7 +18,7 @@ void Multigrid::vcycle(MultigridHierarchy *hierarchy, int currentLevel, double o
         restrict_operator(hierarchy->grids[currentLevel].get(), hierarchy->grids[currentLevel-1].get());
 
         // Recursively call vcycle
-        vcycle(hierarchy, currentLevel-1, omg, numSweeps);
+        vcycle(hierarchy, currentLevel-1, omg, numSweeps*2);
 
         // Prolongate the error to the finer grid
         prolongate_operator(hierarchy->grids[currentLevel-1].get(), hierarchy->grids[currentLevel].get());
@@ -87,10 +87,8 @@ void Multigrid::relax(StaggeredGrid *grid, int numSweeps, double omg) {
                         (1 / (-2 * grid->dx2 - 2 * grid->dy2 - 2 * grid->dz2)) // 1/Aii
                         *
                         (
-                            grid->RHS(i, j, k) * (grid->dx2dy2 + grid->dx2dz2 + grid->dy2dz2) -
-                            grid->dz2 * (grid->p(i+1, j, k) + grid->p(i-1, j, k)) -
-                            grid->dy2 * (grid->p(i, j+1, k) + grid->p(i, j-1, k)) -
-                            grid->dx2 * (grid->p(i, j, k+1) + grid->p(i, j, k-1))
+                            grid->RHS(i, j, k) * grid->dx2dy2dz2 - grid->dy2 * (grid->p(i + 1, j, k) + grid->p(i - 1, j, k)) -
+                            grid->dx2 * (grid->p(i, j + 1, k) + grid->p(i, j - 1, k)) - grid->dz2 * (grid->p(i, j, k + 1) + grid->p(i, j, k - 1))
                         )
                     );
                     grid->res(i, j, k) = grid->po(i, j, k) - grid->p(i, j, k);

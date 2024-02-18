@@ -474,8 +474,6 @@ namespace CFD {
         double last_saved = 0.0;
         std::string solver_name = "";
 
-        saveVTKGeometry(this);
-
         // Function pointer to solver
         void (CFD::FluidSimulation::*pressure_solver)();
 
@@ -604,7 +602,7 @@ namespace CFD {
         this->res_norm_over_it_without_pressure_solver.conservativeResize(this->it_wo_pressure_solver);
         this->res_norm_over_time.conservativeResize(this->duration);
 
-        return;
+        saveVTKGeometry(this);
     }
 
     void FluidSimulation::saveData() {
