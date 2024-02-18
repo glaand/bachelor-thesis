@@ -82,8 +82,6 @@ void CFD::saveVTKGeometry(FluidSimulation* sim) {
         }
     }
 
-    std::cout << "startI: " << startI << " startJ: " << startJ << std::endl;
-
     // Create vtk cells for the geometry
     vtkSmartPointer<vtkCellArray> cells = vtkSmartPointer<vtkCellArray>::New();
     vtkIdType vertexIds[4];  // Assuming 2D, use 4 vertices for each cell
