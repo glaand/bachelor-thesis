@@ -47,3 +47,4 @@ __pycache__/
 *.dat
 cpp/extern/
 experiments/
+experiments_2d/
