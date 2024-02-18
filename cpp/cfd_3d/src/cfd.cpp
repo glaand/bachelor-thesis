@@ -1,6 +1,8 @@
 #include <iostream>
+#include <filesystem>
 #include <chrono>
 #include "cfd.h"
+#include <H5Cpp.h>
 
 namespace CFD {
     namespace ME_X {
@@ -469,6 +471,64 @@ namespace CFD {
         }
     }
 
+    void FluidSimulation::saveHDF5() {
+        try {
+            // Define the HDF5 file names
+            std::string pressureFilename = "pressure.h5";
+            std::string rhsFilename = "RHS.h5";
+
+            // Check if the pressure file exists
+            if (!std::filesystem::exists(pressureFilename)) {
+                // If the file doesn't exist, create a new one
+                H5::H5File pressureFile(pressureFilename, H5F_ACC_TRUNC);
+            }
+
+            // Open the pressure HDF5 file in read-write mode
+            H5::H5File pressureFile(pressureFilename, H5F_ACC_RDWR);
+
+            // Create a dataspace for the pressure dataset
+            hsize_t dims_p[3] = { grid.p.dimension(0), grid.p.dimension(1), grid.p.dimension(2) };
+            H5::DataSpace dataspace_p(3, dims_p);
+
+            // Create a dataset with the current timestamp as the name
+            std::string datasetNamePressure = std::to_string(this->it_wo_pressure_solver) + "_p";
+            H5::DataSet datasetPressure = pressureFile.createDataSet(datasetNamePressure, H5::PredType::NATIVE_DOUBLE, dataspace_p);
+
+            // Write the pressure data to the dataset
+            datasetPressure.write(grid.p.data(), H5::PredType::NATIVE_DOUBLE);
+
+            // Close the pressure dataset
+            datasetPressure.close();
+            pressureFile.close();
+
+            // Check if the RHS file exists
+            if (!std::filesystem::exists(rhsFilename)) {
+                // If the file doesn't exist, create a new one
+                H5::H5File rhsFile(rhsFilename, H5F_ACC_TRUNC);
+            }
+
+            // Open the RHS HDF5 file in read-write mode
+            H5::H5File rhsFile(rhsFilename, H5F_ACC_RDWR);
+
+            // Create a dataspace for the RHS dataset
+            hsize_t dims_rhs[3] = { grid.RHS.dimension(0), grid.RHS.dimension(1), grid.RHS.dimension(2) };
+            H5::DataSpace dataspace_rhs(3, dims_rhs);
+
+            // Create a dataset with the current timestamp as the name
+            std::string datasetNameRHS = std::to_string(this->it_wo_pressure_solver) + "_rhs";
+            H5::DataSet datasetRHS = rhsFile.createDataSet(datasetNameRHS, H5::PredType::NATIVE_DOUBLE, dataspace_rhs);
+
+            // Write the RHS data to the dataset
+            datasetRHS.write(grid.RHS.data(), H5::PredType::NATIVE_DOUBLE);
+
+            // Close the RHS dataset
+            datasetRHS.close();
+            rhsFile.close();
+        } catch (H5::Exception& e) {
+            std::cerr << "HDF5 Exception: " << e.getCDetailMsg() << std::endl;
+        }
+    }
+
 
     void FluidSimulation::run() {
         double last_saved = 0.0;
@@ -567,6 +627,10 @@ namespace CFD {
 
             (this->*pressure_solver)();
 
+            if (this->save_hdf5) {
+                this->saveHDF5();
+            }
+
             this->res_norm_over_it_without_pressure_solver(this->it_wo_pressure_solver) = this->res_norm;
 
             this->computeU();
@@ -577,8 +641,8 @@ namespace CFD {
             this->setBoundaryConditionsW();
             this->setBoundaryConditionsVelocityGeometry();
             this->setBoundaryConditionsPGeometry();
-                std::cout << "Solver: " << solver_name << " t: " << this->t << " dt: " << this->dt << " res: " << this->res_norm << std::endl;
             if (this->t - last_saved >= this->save_interval) {
+                std::cout << "Solver: " << solver_name << " t: " << this->t << " dt: " << this->dt << " res: " << this->res_norm << std::endl;
                 this->grid.interpolateVelocity();
                 saveVTK(this);
                 last_saved += this->save_interval;

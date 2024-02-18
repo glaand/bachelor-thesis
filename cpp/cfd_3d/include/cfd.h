@@ -61,6 +61,7 @@ namespace CFD {
         double t = 0;
         double dt = 0.05;
         double save_interval = 0.5;
+        bool save_hdf5 = false;
         SolverType solver_type = SolverType::JACOBI;
 
         argparse::ArgumentParser argument_parser;
@@ -90,6 +91,7 @@ namespace CFD {
             res_norm_over_it_with_pressure_solver = VectorXd::Zero(1e7);
             res_norm_over_it_without_pressure_solver = VectorXd::Zero(1e7);
             res_norm_over_time = VectorXd::Zero(1e7);
+            save_hdf5 = params.save_hdf5;
         }
         int imax;
         int jmax;
@@ -114,6 +116,7 @@ namespace CFD {
         Kernel::Timer timer;
         SolverType solver_type;
         double save_interval;
+        bool save_hdf5;
         VectorXd res_norm_over_it_with_pressure_solver;
         VectorXd res_norm_over_it_without_pressure_solver;
         VectorXd res_norm_over_time;
@@ -140,6 +143,7 @@ namespace CFD {
         void computeW(); // 3D
         void run();
         void saveData();
+        void saveHDF5();
 
         // Local functions
         bool isObstacleCell(int i, int j, int k); // 3D
