@@ -33,7 +33,8 @@ namespace CFD {
         JACOBI,
         MULTIGRID_JACOBI,
         CONJUGATED_GRADIENT,
-        MULTIGRID_PCG
+        MULTIGRID_PCG,
+        ML
     };
     SolverType convertSolverType(const std::string& solver);
 
@@ -53,6 +54,7 @@ namespace CFD {
             double t = 0;
             double dt = 0.05;
             double save_interval = 0.5;
+            bool save_ml = false;
             SolverType solver_type = SolverType::JACOBI;
 
             argparse::ArgumentParser argument_parser;
@@ -80,6 +82,8 @@ namespace CFD {
                 res_norm_over_it_with_pressure_solver = VectorXd::Zero(1e7);
                 res_norm_over_it_without_pressure_solver = VectorXd::Zero(1e7);
                 res_norm_over_time = VectorXd::Zero(1e7);
+                save_ml = params.save_ml;
+                maxiterations_cg = std::max(imax, jmax);
             }
             int imax;
             int jmax;
@@ -102,9 +106,19 @@ namespace CFD {
             Kernel::Timer timer;
             SolverType solver_type;
             double save_interval;
+            bool save_ml;
             VectorXd res_norm_over_it_with_pressure_solver;
             VectorXd res_norm_over_it_without_pressure_solver;
             VectorXd res_norm_over_time;
+
+            // Conjugate Gradient components
+            int n_cg = 0;
+            int maxiterations_cg;
+            double alpha_cg = 0.0;
+            double alpha_top_cg = 0.0;
+            double alpha_bottom_cg = 0.0;
+            double beta_cg = 0.0;
+            double beta_top_cg = 0.0;
 
             // Multigrid components
             MultigridHierarchy *multigrid_hierarchy;
@@ -112,6 +126,9 @@ namespace CFD {
             // Preconditioner Conjugated Gradient components
             MultigridHierarchy *multigrid_hierarchy_preconditioner;
             StaggeredGrid preconditioner;
+
+            // Deep Learning
+            torch::jit::script::Module model;
 
             void selectDtAccordingToStabilityCondition();
             void computeF();
@@ -121,17 +138,22 @@ namespace CFD {
             void solveWithMultigridJacobi();
             void solveWithConjugatedGradient();
             void solveWithMultigridPCG();
+            void solveWithML();
             void computeDiscreteL2Norm();
             void computeU();
             void computeV();
             void run();
             void saveData();
+            void saveMLData();
 
             // Local functions
             bool isObstacleCell(int i, int j);
             bool isCornerCell(int i, int j);
             void handleCornerCell(int i, int j);
             void handleObstacleCell(int i, int j);
+
+            // Deep Learning
+            void loadTorchScriptModel(const std::string& modelPath);
 
             // Virtual functions
             virtual void setBoundaryConditionsU() = 0;

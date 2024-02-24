@@ -40,6 +40,9 @@ clone_vtk:
 		git clone --depth 1 --branch v9.1.0 git@github.com:Kitware/VTK.git cpp/extern/vtk; \
 	fi
 
+build_hdf5:
+	cd cpp/extern/hdf5 && bash build-unix.sh
+
 run_benchmarks:
 	cd benchmarks && bash run_benchmarks.sh
 

@@ -1,3 +1,4 @@
+#include <filesystem>
 #include <iostream>
 #include <chrono>
 #include "cfd.h"
@@ -324,6 +325,24 @@ namespace CFD {
         }
     }
 
+    void FluidSimulation::loadTorchScriptModel(const std::string& modelPath) {
+        try {
+            // Deserialize the ScriptModule from a file using torch::jit::load().
+            this->model = torch::jit::load(modelPath);
+        } catch (const c10::Error& e) {
+            std::cerr << "Error loading the model\n";
+            // print the error and stack trace
+            std::cerr << e.what();
+        }
+    }
+
+    void FluidSimulation::saveMLData() {
+        std::string filename = "RHS_" + std::to_string(this->t) + ".dat";
+        Kernel::saveMatrix(filename.c_str(), &this->grid.RHS);
+        std::string filename2 = "p_" + std::to_string(this->t) + ".dat";
+        Kernel::saveMatrix(filename2.c_str(), &this->grid.p);
+    }
+
     void FluidSimulation::run() {
         double last_saved = 0.0;
         std::string solver_name = "";
@@ -391,6 +410,27 @@ namespace CFD {
 
             std::cout << "Solver: Multigrid PCG (" << this->grid.imax << "x" << this->grid.jmax << ")" << std::endl;
         }
+        else if (this->solver_type == SolverType::ML) {
+            pressure_solver = &FluidSimulation::solveWithML;
+            loadTorchScriptModel("model.pt");
+            solver_name = "ML";
+
+            // check if imax and jmax are powers of 2, if not throw exception
+            if ((this->grid.imax & (this->grid.imax - 1)) != 0 || (this->grid.jmax & (this->grid.jmax - 1)) != 0) {
+                throw std::invalid_argument("imax and jmax must be powers of 2");
+            }
+
+            int imax_levels = std::log2(this->grid.imax);
+            int jmax_levels = std::log2(this->grid.jmax);
+            int levels = std::min(imax_levels, jmax_levels);
+
+            this->preconditioner = StaggeredGrid(this->grid.imax, this->grid.jmax, this->grid.xlength, this->grid.ylength);
+
+            this->multigrid_hierarchy = new MultigridHierarchy(levels, &this->grid);
+            this->multigrid_hierarchy_preconditioner = new MultigridHierarchy(levels, &this->preconditioner);
+
+            std::cout << "Solver: ML (" << this->grid.imax << "x" << this->grid.jmax << ")" << std::endl;
+        }
         else {
             throw std::invalid_argument("Invalid solver type");
         }
@@ -406,8 +446,12 @@ namespace CFD {
             this->computeG();
             this->setBoundaryConditionsVelocityGeometry();
             this->computeRHS();
-                
+            
             (this->*pressure_solver)();
+
+            if (this->save_ml) {
+                this->saveMLData();
+            }
 
             this->res_norm_over_it_without_pressure_solver(this->it_wo_pressure_solver) = this->res_norm;
 

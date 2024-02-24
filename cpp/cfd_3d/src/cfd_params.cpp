@@ -39,7 +39,6 @@ FluidParams::FluidParams(std::string name, int argc, char* argv[])
     this->argument_parser.add_argument("-d", "--dt").help("dt").default_value(this->dt).action([](const std::string& value) { return std::stod(value); });
     this->argument_parser.add_argument("-l", "--save_interval").help("VTK save interval").default_value(this->save_interval).action([](const std::string& value) { return std::stod(value); });
     this->argument_parser.add_argument("-s", "--solver").help("solver").default_value("jacobi").action([](const std::string& value) { return value; });
-    this->argument_parser.add_argument("--save_hdf5").help("Save HDF5").default_value(false).action([](const std::string& value) { return std::stoi(value) == 1; });
 
     try {
         this->argument_parser.parse_args(argc, argv);
@@ -65,6 +64,5 @@ FluidParams::FluidParams(std::string name, int argc, char* argv[])
     this->t = this->argument_parser.get<double>("--t"),
     this->dt = this->argument_parser.get<double>("--dt"),
     this->save_interval = this->argument_parser.get<double>("--save_interval"),
-    this->save_hdf5 = this->argument_parser.get<bool>("--save_hdf5"),
     this->solver_type = convertSolverType(this->argument_parser.get<std::string>("--solver"));
 }

@@ -48,3 +48,4 @@ __pycache__/
 cpp/extern/
 experiments/
 experiments_2d/
+*.pt

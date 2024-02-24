@@ -1,7 +1,6 @@
 project(cfd_3d)
 
 find_package(Eigen3 REQUIRED COMPONENTS CXX)
-find_package(HDF5 REQUIRED COMPONENTS CXX)
 
 set(CFD_3d_SOURCES
     src/cfd_params.cpp
@@ -35,7 +34,6 @@ target_link_libraries(
     VTK::ParallelCore
     VTK::FiltersCore
     VTK::vtksys
-    HDF5::HDF5
 )
 
 # Compile CFD Programs 

@@ -3,6 +3,8 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 
+#include <torch/script.h>
+
 namespace CFD {
     using namespace Eigen;
 
