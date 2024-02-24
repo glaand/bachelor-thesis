@@ -20,21 +20,21 @@ namespace CFD {
             jmax = p_jmax;
             xlength = p_xlength;
             ylength = p_ylength;
-            p = MatrixXd::Zero(imax + 2, jmax + 2);
-            po = MatrixXd::Zero(imax + 2, jmax + 2);
-            RHS = MatrixXd::Zero(imax + 2, jmax + 2);
-            res = MatrixXd::Zero(imax + 2, jmax + 2);
-            u = MatrixXd::Zero(imax + 2, jmax + 3);
-            F = MatrixXd::Zero(imax + 2, jmax + 3);
-            v = MatrixXd::Zero(imax + 3, jmax + 2);
-            G = MatrixXd::Zero(imax + 3, jmax + 2);
-            u_interpolated = MatrixXd::Zero(imax + 2, jmax + 2);
-            v_interpolated = MatrixXd::Zero(imax + 2, jmax + 2);
+            p = MatrixXf::Zero(imax + 2, jmax + 2);
+            po = MatrixXf::Zero(imax + 2, jmax + 2);
+            RHS = MatrixXf::Zero(imax + 2, jmax + 2);
+            res = MatrixXf::Zero(imax + 2, jmax + 2);
+            u = MatrixXf::Zero(imax + 2, jmax + 3);
+            F = MatrixXf::Zero(imax + 2, jmax + 3);
+            v = MatrixXf::Zero(imax + 3, jmax + 2);
+            G = MatrixXf::Zero(imax + 3, jmax + 2);
+            u_interpolated = MatrixXf::Zero(imax + 2, jmax + 2);
+            v_interpolated = MatrixXf::Zero(imax + 2, jmax + 2);
             flag_field = MatrixXi::Ones(imax + 2, jmax + 2);
 
             // Conjugated Gradient components
-            search_vector = MatrixXd::Zero(imax + 2, jmax + 2);
-            Asearch_vector = MatrixXd::Zero(imax + 2, jmax + 2);
+            search_vector = MatrixXf::Zero(imax + 2, jmax + 2);
+            Asearch_vector = MatrixXf::Zero(imax + 2, jmax + 2);
 
             dx = xlength / imax;
             dy = ylength / jmax;
@@ -54,20 +54,20 @@ namespace CFD {
         int jmax;
         double xlength;
         double ylength;
-        MatrixXd p;
-        MatrixXd po;
-        MatrixXd RHS;
-        MatrixXd res;
-        MatrixXd u;
-        MatrixXd v;
-        MatrixXd F;
-        MatrixXd G;
-        MatrixXd u_interpolated;
-        MatrixXd v_interpolated;
+        MatrixXf p;
+        MatrixXf po;
+        MatrixXf RHS;
+        MatrixXf res;
+        MatrixXf u;
+        MatrixXf v;
+        MatrixXf F;
+        MatrixXf G;
+        MatrixXf u_interpolated;
+        MatrixXf v_interpolated;
         MatrixXi flag_field;
 
         // Conjugated Gradient components
-        MatrixXd search_vector;
-        MatrixXd Asearch_vector;
+        MatrixXf search_vector;
+        MatrixXf Asearch_vector;
     };
 }

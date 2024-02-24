@@ -10,23 +10,17 @@ import torch.optim as optim
 from torch.utils.data import random_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
-class GeometricMultigridCNN(nn.Module):
+class SimpleCNN(nn.Module):
     def __init__(self):
-        super(GeometricMultigridCNN, self).__init__()
+        super(SimpleCNN, self).__init__()
 
         # Encoder
         self.enc_conv1 = nn.Conv2d(1, 64, kernel_size=3, padding=1)
         self.enc_conv2 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
         self.enc_conv3 = nn.Conv2d(128, 256, kernel_size=3, padding=1)
 
-        # Multigrid Downsample
-        self.downsample = nn.MaxPool2d(2)
-
         # Bottleneck
         self.bottleneck_conv = nn.Conv2d(256, 128, kernel_size=3, padding=1)
-
-        # Multigrid Upsample
-        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
 
         # Output
         self.dec_conv1 = nn.Conv2d(128, 64, kernel_size=3, padding=1)
@@ -38,18 +32,13 @@ class GeometricMultigridCNN(nn.Module):
         x2 = F.selu(self.enc_conv2(x1))
         x3 = F.selu(self.enc_conv3(x2))
 
-        # Multigrid Downsample
-        x3_downsampled = self.downsample(x3)
-
         # Bottleneck
-        x_bottleneck = F.selu(self.bottleneck_conv(x3_downsampled))
-
-        # Multigrid Upsample
-        x_bottleneck_upsampled = self.upsample(x_bottleneck)
+        x_bottleneck = F.selu(self.bottleneck_conv(x3))
 
         # Output
-        dx1 = F.selu(self.dec_conv1(x_bottleneck_upsampled))
+        dx1 = F.selu(self.dec_conv1(x_bottleneck))
         x_out = F.selu(self.final_conv(dx1))
+
 
         return x_out
     
@@ -89,13 +78,22 @@ pressure_data = pressure_data.view(pressure_data.shape[0], 1, 34, 34).float()
 RHS_data = RHS_data.view(RHS_data.shape[0], 1, 34, 34).float()
 
 # Split data into train and test sets
-split_index = int(0.8 * len(pressure_data))
+total_samples = pressure_data.shape[0]
+train_size = int(0.8 * total_samples)
+test_size = total_samples - train_size
 
-train_pressure_data, train_RHS_data = pressure_data[:split_index].to("cuda"), RHS_data[:split_index].to("cuda")
-test_pressure_data, test_RHS_data = pressure_data[split_index:].to("cuda"), RHS_data[split_index:].to("cuda")
+train_data, test_data = random_split(list(zip(pressure_data, RHS_data)), [train_size, test_size])
+
+train_pressure_data, train_RHS_data = zip(*train_data)
+test_pressure_data, test_RHS_data = zip(*test_data)
+
+train_pressure_data = torch.stack(train_pressure_data).to("cuda")
+train_RHS_data = torch.stack(train_RHS_data).to("cuda")
+test_pressure_data = torch.stack(test_pressure_data).to("cuda")
+test_RHS_data = torch.stack(test_RHS_data).to("cuda")
 
 # Create the model
-model = GeometricMultigridCNN()
+model = SimpleCNN()
 model.to("cuda")
 
 # Define the optimizer
@@ -105,7 +103,7 @@ optimizer = optim.Adam(model.parameters(), lr=0.000001)
 model.train()
 
 # Train the model
-num_epochs = 10
+num_epochs = 100
 for epoch in range(num_epochs):
     # Forward pass
     output = model(train_RHS_data)
@@ -126,11 +124,10 @@ print(f"Test Loss: {test_loss}, Test MAE: {test_mae}, Test RMSE: {test_rmse}")
 
 # Convert to Torchscript via Annotation
 model.eval()
-traced = torch.jit.trace(model, test_RHS_data[0].unsqueeze(0))
+traced = torch.jit.trace(model, test_RHS_data[0])
 traced.save("model.pt")
 
 # generate random tensor to test the model
 input_tensor = torch.rand(1, 34, 34).to("cuda")
-output = traced(input_tensor.unsqueeze(0))
+output = traced(input_tensor)
 print(output)
-print(test_pressure_data[0])

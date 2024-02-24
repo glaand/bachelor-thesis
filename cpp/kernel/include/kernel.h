@@ -25,4 +25,6 @@ namespace Kernel {
 
     void saveMatrix(const char* filename, MatrixXd* matrix);
     void saveVector(const char* filename, VectorXd* vector);
+    void saveMatrix(const char* filename, MatrixXf* matrix);
+    void saveVector(const char* filename, VectorXf* vector);
 }

@@ -15,8 +15,6 @@ void FluidSimulation::solveWithMultigridPCG() {
     this->beta_cg = 0.0;
     this->beta_top_cg = 0.0;
 
-    int maxiterations = std::max(this->grid.imax, this->grid.jmax);
-
     Multigrid::vcycle(this->multigrid_hierarchy, this->multigrid_hierarchy->numLevels() - 1, 1, 1); // initial guess with multigrid
 
     // Initial residual vector of Ax=b
