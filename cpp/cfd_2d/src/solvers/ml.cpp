@@ -17,14 +17,6 @@ void FluidSimulation::inferenceExp1() {
             this->preconditioner.p(i,j) = output_ptr[(i-1)*this->grid.jmax + (j-1)];
         }
     }
-
-
-    // Initial guess for error vector
-    Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, 1, 1);
-
-    // Initial search vector
-    this->grid.search_vector = this->preconditioner.p;
-
 }
 
 void FluidSimulation::solveWithML() {
@@ -44,19 +36,25 @@ void FluidSimulation::solveWithML() {
     this->beta_cg = 0.0;
     this->beta_top_cg = 0.0;
 
-    for (int i = 1; i < this->grid.imax + 1; i++) {
-        for (int j = 1; j < this->grid.jmax + 1; j++) {
-            this->grid.res(i,j) = this->grid.RHS(i,j) - (
-                // Sparse matrix A
-                (1/this->grid.dx2)*(this->grid.p(i+1,j) - 2*this->grid.p(i,j) + this->grid.p(i-1,j)) +
-                (1/this->grid.dy2)*(this->grid.p(i,j+1) - 2*this->grid.p(i,j) + this->grid.p(i,j-1))
+    // 1x Jacobi smoother with relaxation factor (omega)
+    for (int i = 1; i <= this->grid.imax; i++) {
+        for (int j = 1; j <= this->grid.jmax; j++) {
+            this->grid.po(i,j) = this->grid.p(i,j); // smart residual preparation
+            this->grid.p(i, j) = (
+                (1/(-2*this->grid.dx2 - 2*this->grid.dy2)) // 1/Aii
+                *
+                (
+                    this->grid.RHS(i,j)*this->grid.dx2dy2 - this->grid.dy2*(this->grid.p(i+1,j) + this->grid.p(i-1,j)) - this->grid.dx2*(this->grid.p(i,j+1) + this->grid.p(i,j-1))
+                )
             );
+            this->grid.res(i, j) = this->grid.po(i, j) - this->grid.p(i, j);
             this->preconditioner.RHS(i,j) = this->grid.res(i,j);
-            this->preconditioner.p(i,j) = 0; // <---- here comes the output from the neural network
         }
     }
 
     this->inferenceExp1();
+    // Initial search vector
+    this->grid.search_vector = this->preconditioner.p;
 
     while ((this->res_norm > this->eps || this->res_norm == 0) && this->n_cg < this->maxiterations_cg) {
         this->alpha_top_cg = 0.0;

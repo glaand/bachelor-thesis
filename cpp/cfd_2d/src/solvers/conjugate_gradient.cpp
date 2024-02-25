@@ -15,17 +15,24 @@ void FluidSimulation::solveWithConjugatedGradient() {
     double alpha_top_new = 0.0;
     int maxiterations = std::max(this->grid.imax, this->grid.jmax);
 
-    Multigrid::vcycle(this->multigrid_hierarchy, this->multigrid_hierarchy->numLevels() - 1, 1, 1);
+    // 1x Jacobi smoother with relaxation factor (omega)
+    for (int i = 1; i <= this->grid.imax; i++) {
+        for (int j = 1; j <= this->grid.jmax; j++) {
+            this->grid.po(i,j) = this->grid.p(i,j); // smart residual preparation
+            this->grid.p(i, j) = (
+                (1/(-2*this->grid.dx2 - 2*this->grid.dy2)) // 1/Aii
+                *
+                (
+                    this->grid.RHS(i,j)*this->grid.dx2dy2 - this->grid.dy2*(this->grid.p(i+1,j) + this->grid.p(i-1,j)) - this->grid.dx2*(this->grid.p(i,j+1) + this->grid.p(i,j-1))
+                )
+            );
+            this->grid.res(i, j) = this->grid.po(i, j) - this->grid.p(i, j);
+        }
+    }
 
     // Initial residual vector of Ax=b
     for (int i = 1; i < this->grid.imax + 1; i++) {
         for (int j = 1; j < this->grid.jmax + 1; j++) {
-            /*without initiaul guess
-                this->grid.res(i,j) = this->grid.RHS(i,j) - (
-                // Sparse matrix A
-                (1/this->grid.dx2)*(this->grid.p(i+1,j) - 2*this->grid.p(i,j) + this->grid.p(i-1,j)) +
-                (1/this->grid.dy2)*(this->grid.p(i,j+1) - 2*this->grid.p(i,j) + this->grid.p(i,j-1))
-            );*/
             // copy residual to search_vector (with initial guess from multigrid)
             this->grid.search_vector(i,j) = this->grid.res(i,j);
             alpha_top += this->grid.res(i,j)*this->grid.res(i,j);

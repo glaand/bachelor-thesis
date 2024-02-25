@@ -10,6 +10,18 @@ import torch.optim as optim
 from torch.utils.data import random_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
+# generate laplacian matrix
+def generate_laplacian_matrix(n):
+    L = np.zeros((n, n))
+    for i in range(n):
+        L[i, i] = 4
+        if i > 0:
+            L[i, i-1] = -1
+            L[i-1, i] = -1
+    # convert to tensor
+    L = torch.tensor(L).float().to("cuda")
+    return L
+
 class SimpleCNN(nn.Module):
     def __init__(self):
         super(SimpleCNN, self).__init__()
@@ -42,36 +54,56 @@ class SimpleCNN(nn.Module):
 
         return x_out
     
-def custom_loss(output, target):
+A = generate_laplacian_matrix(34)
 
-    loss = torch.mean(torch.abs(output - target) / (torch.abs(target) + 1))
+def custom_loss(predicted_error_vector, train_pressure_data, train_RHS_data, A):
+    # loss = || RHS - A * (P - error) ||^2
+    loss = torch.norm(train_RHS_data - torch.matmul(A, train_pressure_data - predicted_error_vector))**2
     return loss
 
 def evaluate_regression(model, test_data, criterion):
     model.eval()
     with torch.no_grad():
-        outputs = model(test_data[0])
-        loss = criterion(outputs, test_data[1])
+        predicted_error_vector = model(test_data[0])
+        loss = criterion(predicted_error_vector, test_data[1], test_data[0], A)
         true_data = test_data[1].to('cpu').numpy().flatten()
-        predicted_data = outputs.to('cpu').numpy().flatten()
-        mae = mean_absolute_error(true_data, predicted_data)
-        rmse = np.sqrt(mean_squared_error(true_data, predicted_data))
+        predicted_data = predicted_error_vector.to('cpu').numpy().flatten()
 
-    return loss.item(), mae, rmse
+    return loss.item()
 
 # Load data
 pressure_data = torch.tensor([])
 RHS_data = torch.tensor([])
 
-with h5py.File("pressure.h5", "r") as f:
-    keys = list(f.keys())
-    for key in keys:
-        pressure_data = torch.cat((pressure_data, torch.tensor(f[key]).unsqueeze(0)), 0)
+# list files for given path
+import os
+RHS_files = {}
+pressure_files = {}
+for file in os.listdir("../experiments/2d/mgpcg/ML_data/"):
+    if file.endswith(".dat"):
+        if "RHS" in file:
+            _, number = file.split("_")
+            number, _ = number.split(".")
+            RHS_files[int(number)] = os.path.join("../experiments/2d/mgpcg/ML_data/", file)
+        elif "p_" in file:
+            _, number = file.split("_")
+            number, _ = number.split(".")
+            pressure_files[int(number)] = os.path.join("../experiments/2d/mgpcg/ML_data/", file)
 
-with h5py.File("RHS.h5", "r") as f:
-    keys = list(f.keys())
-    for key in keys:
-        RHS_data = torch.cat((RHS_data, torch.tensor(f[key]).unsqueeze(0)), 0)
+# sort files
+RHS_files = dict(sorted(RHS_files.items()))
+pressure_files = dict(sorted(pressure_files.items()))
+
+# load data
+print("Loading RHS data...")
+for key in list(RHS_files.keys()):
+    filepath = RHS_files[key]
+    RHS_data = torch.cat((RHS_data, torch.tensor(np.loadtxt(filepath)).unsqueeze(0)), 0)
+
+print("Loading pressure data...")
+for key in list(pressure_files.keys()):
+    filepath = pressure_files[key]
+    pressure_data = torch.cat((pressure_data, torch.tensor(np.loadtxt(filepath)).unsqueeze(0)), 0)
 
 # Prepare data
 pressure_data = pressure_data.view(pressure_data.shape[0], 1, 34, 34).float()
@@ -106,10 +138,10 @@ model.train()
 num_epochs = 100
 for epoch in range(num_epochs):
     # Forward pass
-    output = model(train_RHS_data)
+    predicted_error_vector = model(train_RHS_data)
 
     # Calculate the loss
-    loss = custom_loss(output, train_pressure_data)
+    loss = custom_loss(predicted_error_vector, train_pressure_data, train_RHS_data, A)
 
     # Backward pass and optimization
     optimizer.zero_grad()
@@ -119,8 +151,8 @@ for epoch in range(num_epochs):
     print(f"Epoch {epoch+1}/{num_epochs}, Train Loss: {loss.item()}")
 
 # Evaluate the model on the test set
-test_loss, test_mae, test_rmse = evaluate_regression(model, (test_RHS_data, test_pressure_data), custom_loss)
-print(f"Test Loss: {test_loss}, Test MAE: {test_mae}, Test RMSE: {test_rmse}")
+test_loss = evaluate_regression(model, (test_RHS_data, test_pressure_data, A), custom_loss)
+print(f"Test Loss: {test_loss}")
 
 # Convert to Torchscript via Annotation
 model.eval()
