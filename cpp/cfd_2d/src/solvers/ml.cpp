@@ -2,6 +2,31 @@
 
 using namespace CFD;
 
+void FluidSimulation::inferenceExp1() {
+    // Initial guess for error vector with deep learning
+    auto options = torch::TensorOptions().dtype(torch::kFloat);
+    torch::Tensor T = torch::from_blob(this->grid.res.data(), {this->grid.res.rows(), this->grid.res.cols()}, options).clone();
+    T = T.to(torch::kCUDA);
+    T = T.unsqueeze(0);
+    auto output = this->model.forward({ T }).toTensor();
+    output = output.to(torch::kCPU).squeeze(0);
+    float* output_ptr = output.data_ptr<float>();
+
+    for (int i = 1; i < this->grid.imax + 1; i++) {
+        for (int j = 1; j < this->grid.jmax + 1; j++) {
+            this->preconditioner.p(i,j) = output_ptr[(i-1)*this->grid.jmax + (j-1)];
+        }
+    }
+
+
+    // Initial guess for error vector
+    Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, 1, 1);
+
+    // Initial search vector
+    this->grid.search_vector = this->preconditioner.p;
+
+}
+
 void FluidSimulation::solveWithML() {
 
     this->setBoundaryConditionsP();
@@ -19,29 +44,19 @@ void FluidSimulation::solveWithML() {
     this->beta_cg = 0.0;
     this->beta_top_cg = 0.0;
 
-    Multigrid::vcycle(this->multigrid_hierarchy, this->multigrid_hierarchy->numLevels() - 1, 1, 1); // initial guess with multigrid
-
-    // Inference of initial pressure guess
-    auto options = torch::TensorOptions().dtype(torch::kFloat);
-    torch::Tensor T = torch::from_blob(this->grid.RHS.data(), {this->grid.RHS.rows(), this->grid.RHS.cols()}, options).clone();
-    T = T.to(torch::kCUDA);
-    T = T.unsqueeze(0);
-    auto output = this->model.forward({ T }).toTensor();
-    output = output.to(torch::kCPU).squeeze(0);
-    float* output_ptr = output.data_ptr<float>();
-
     for (int i = 1; i < this->grid.imax + 1; i++) {
         for (int j = 1; j < this->grid.jmax + 1; j++) {
-            this->preconditioner.RHS(i,j) = this->grid.p(i,j) - output_ptr[i * output.size(1) + j];
-            this->preconditioner.p(i,j) = 0;
+            this->grid.res(i,j) = this->grid.RHS(i,j) - (
+                // Sparse matrix A
+                (1/this->grid.dx2)*(this->grid.p(i+1,j) - 2*this->grid.p(i,j) + this->grid.p(i-1,j)) +
+                (1/this->grid.dy2)*(this->grid.p(i,j+1) - 2*this->grid.p(i,j) + this->grid.p(i,j-1))
+            );
+            this->preconditioner.RHS(i,j) = this->grid.res(i,j);
+            this->preconditioner.p(i,j) = 0; // <---- here comes the output from the neural network
         }
     }
 
-    // Initial guess for error vector
-    Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, 1, 1);
-
-    // Initial search vector
-    this->grid.search_vector = this->preconditioner.p;
+    this->inferenceExp1();
 
     while ((this->res_norm > this->eps || this->res_norm == 0) && this->n_cg < this->maxiterations_cg) {
         this->alpha_top_cg = 0.0;
@@ -87,7 +102,7 @@ void FluidSimulation::solveWithML() {
         }
         
         // New guess for error vector
-        Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, 1, 1);
+        this->inferenceExp1();
 
         // Calculate beta
         for (int i = 1; i < this->grid.imax + 1; i++) {

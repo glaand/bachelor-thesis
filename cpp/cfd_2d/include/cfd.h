@@ -55,6 +55,7 @@ namespace CFD {
             double dt = 0.05;
             double save_interval = 0.5;
             bool save_ml = false;
+            bool no_vtk = false;
             SolverType solver_type = SolverType::JACOBI;
 
             argparse::ArgumentParser argument_parser;
@@ -83,6 +84,7 @@ namespace CFD {
                 res_norm_over_it_without_pressure_solver = VectorXd::Zero(1e7);
                 res_norm_over_time = VectorXd::Zero(1e7);
                 save_ml = params.save_ml;
+                no_vtk = params.no_vtk;
                 maxiterations_cg = std::max(imax, jmax);
             }
             int imax;
@@ -107,6 +109,7 @@ namespace CFD {
             SolverType solver_type;
             double save_interval;
             bool save_ml;
+            bool no_vtk;
             VectorXd res_norm_over_it_with_pressure_solver;
             VectorXd res_norm_over_it_without_pressure_solver;
             VectorXd res_norm_over_time;
@@ -145,6 +148,7 @@ namespace CFD {
             void run();
             void saveData();
             void saveMLData();
+            int current_file_number = 0;
 
             // Local functions
             bool isObstacleCell(int i, int j);
@@ -154,6 +158,7 @@ namespace CFD {
 
             // Deep Learning
             void loadTorchScriptModel(const std::string& modelPath);
+            void inferenceExp1();
 
             // Virtual functions
             virtual void setBoundaryConditionsU() = 0;

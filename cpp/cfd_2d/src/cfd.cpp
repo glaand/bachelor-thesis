@@ -337,17 +337,24 @@ namespace CFD {
     }
 
     void FluidSimulation::saveMLData() {
-        std::string filename = "RHS_" + std::to_string(this->t) + ".dat";
+        // check if directory exists
+        if (!std::filesystem::exists("ML_data")) {
+            std::filesystem::create_directory("ML_data");
+        }
+        std::string filename = "ML_data/RHS_" + std::to_string(this->current_file_number) + ".dat";
         Kernel::saveMatrix(filename.c_str(), &this->grid.RHS);
-        std::string filename2 = "p_" + std::to_string(this->t) + ".dat";
+        std::string filename2 = "ML_data/p_" + std::to_string(this->current_file_number) + ".dat";
         Kernel::saveMatrix(filename2.c_str(), &this->grid.p);
+        this->current_file_number++;
     }
 
     void FluidSimulation::run() {
         double last_saved = 0.0;
         std::string solver_name = "";
 
-        saveVTKGeometry(this);
+        if (!this->no_vtk) {
+            saveVTKGeometry(this);
+        }
 
         // Function pointer to solver
         void (CFD::FluidSimulation::*pressure_solver)();
@@ -449,10 +456,6 @@ namespace CFD {
             
             (this->*pressure_solver)();
 
-            if (this->save_ml) {
-                this->saveMLData();
-            }
-
             this->res_norm_over_it_without_pressure_solver(this->it_wo_pressure_solver) = this->res_norm;
 
             this->computeU();
@@ -465,7 +468,9 @@ namespace CFD {
                 std::cout << "Solver: " << solver_name << " t: " << this->t << " dt: " << this->dt << " res: " << this->res_norm << std::endl;
                 this->grid.interpolateVelocity();
                 this->setBoundaryConditionsInterpolatedVelocityGeometry();
-                saveVTK(this);
+                if (!this->no_vtk) {
+                    saveVTK(this);
+                }
                 last_saved += this->save_interval;
             }
             this->duration += static_cast<int>(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count()) - this->lastTimestamp;

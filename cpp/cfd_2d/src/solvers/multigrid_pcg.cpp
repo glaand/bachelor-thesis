@@ -15,20 +15,21 @@ void FluidSimulation::solveWithMultigridPCG() {
     this->beta_cg = 0.0;
     this->beta_top_cg = 0.0;
 
-    Multigrid::vcycle(this->multigrid_hierarchy, this->multigrid_hierarchy->numLevels() - 1, 1, 1); // initial guess with multigrid
-
     // Initial residual vector of Ax=b
     for (int i = 1; i < this->grid.imax + 1; i++) {
         for (int j = 1; j < this->grid.jmax + 1; j++) {
-            /* copy residual to preconditioner and reset grids (without initiaul guess)
             this->grid.res(i,j) = this->grid.RHS(i,j) - (
                 // Sparse matrix A
                 (1/this->grid.dx2)*(this->grid.p(i+1,j) - 2*this->grid.p(i,j) + this->grid.p(i-1,j)) +
                 (1/this->grid.dy2)*(this->grid.p(i,j+1) - 2*this->grid.p(i,j) + this->grid.p(i,j-1))
-            );*/
+            );
             this->preconditioner.RHS(i,j) = this->grid.res(i,j);
-            this->preconditioner.p(i,j) = this->grid.res(i,j) * (1/this->grid.dx2 + 1/this->grid.dy2);
+            this->preconditioner.p(i,j) = 0;
         }
+    }
+
+    if (this->save_ml) {
+        this->saveMLData();
     }
 
     // Initial guess for error vector
@@ -78,6 +79,10 @@ void FluidSimulation::solveWithMultigridPCG() {
         if (this->res_norm < this->eps) {
             this->it++;
             break;
+        }
+
+        if (this->save_ml) {
+            this->saveMLData();
         }
         
         // New guess for error vector

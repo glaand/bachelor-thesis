@@ -41,6 +41,7 @@ FluidParams::FluidParams(std::string name, int argc, char* argv[])
     this->argument_parser.add_argument("-l", "--save_interval").help("VTK save interval").default_value(this->save_interval).action([](const std::string& value) { return std::stod(value); });
     this->argument_parser.add_argument("-s", "--solver").help("solver").default_value("jacobi").action([](const std::string& value) { return value; });
     this->argument_parser.add_argument("--save_ml").help("Save for Machine Learning").default_value(false).action([](const std::string& value) { return std::stoi(value) == 1; });
+    this->argument_parser.add_argument("--no_vtk").help("Disable VTK Rendering").default_value(false).action([](const std::string& value) { return std::stoi(value) == 1; });
 
 
     try {
@@ -66,5 +67,6 @@ FluidParams::FluidParams(std::string name, int argc, char* argv[])
     this->dt = this->argument_parser.get<double>("--dt"),
     this->save_interval = this->argument_parser.get<double>("--save_interval"),
     this->save_ml = this->argument_parser.get<bool>("--save_ml"),
+    this->no_vtk = this->argument_parser.get<bool>("--no_vtk"),
     this->solver_type = convertSolverType(this->argument_parser.get<std::string>("--solver"));
 }
