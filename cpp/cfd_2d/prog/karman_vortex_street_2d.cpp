@@ -91,6 +91,104 @@ void FluidWithObstacles2D::run() {
         }
     }
 
+
+    distanceLeft += 60;
+    distanceRight += 60;
+    distanceTop += 30;
+    distanceBottom += 30;
+    for (int i = 1; i < this->grid.imax + 1; i++) {
+        for (int j = 1; j < this->grid.jmax + 1; j++) {
+
+            // Check if cell is inside the square
+            if (i >= distanceLeft && i <= distanceRight && j >= distanceTop && j <= distanceBottom) {
+                // Inside the square
+                this->grid.flag_field(i, j) = FlagFieldMask::CELL_OBSTACLE;
+
+                // Top Layer of the square
+                if (j == distanceTop) {
+                    // South neighbor
+                    this->grid.flag_field(i, j) |= FlagFieldMask::FLUID_SOUTH;
+                }
+                if (j == distanceBottom) {
+                    // North neighbor
+                    this->grid.flag_field(i, j) |= FlagFieldMask::FLUID_NORTH;
+                }
+                if (i == distanceLeft) {
+                    // West neighbor
+                    this->grid.flag_field(i, j) |= FlagFieldMask::FLUID_WEST;
+                }
+                if (i == distanceRight) {
+                    // East neighbor
+                    this->grid.flag_field(i, j) |= FlagFieldMask::FLUID_EAST;
+                } 
+            }
+        }
+    }
+
+    distanceTop -= 60;
+    distanceBottom -= 60;
+    for (int i = 1; i < this->grid.imax + 1; i++) {
+        for (int j = 1; j < this->grid.jmax + 1; j++) {
+
+            // Check if cell is inside the square
+            if (i >= distanceLeft && i <= distanceRight && j >= distanceTop && j <= distanceBottom) {
+                // Inside the square
+                this->grid.flag_field(i, j) = FlagFieldMask::CELL_OBSTACLE;
+
+                // Top Layer of the square
+                if (j == distanceTop) {
+                    // South neighbor
+                    this->grid.flag_field(i, j) |= FlagFieldMask::FLUID_SOUTH;
+                }
+                if (j == distanceBottom) {
+                    // North neighbor
+                    this->grid.flag_field(i, j) |= FlagFieldMask::FLUID_NORTH;
+                }
+                if (i == distanceLeft) {
+                    // West neighbor
+                    this->grid.flag_field(i, j) |= FlagFieldMask::FLUID_WEST;
+                }
+                if (i == distanceRight) {
+                    // East neighbor
+                    this->grid.flag_field(i, j) |= FlagFieldMask::FLUID_EAST;
+                } 
+            }
+        }
+    }
+
+    distanceLeft += 60;
+    distanceRight += 60;
+    distanceTop += 30;
+    distanceBottom += 30;
+    for (int i = 1; i < this->grid.imax + 1; i++) {
+        for (int j = 1; j < this->grid.jmax + 1; j++) {
+
+            // Check if cell is inside the square
+            if (i >= distanceLeft && i <= distanceRight && j >= distanceTop && j <= distanceBottom) {
+                // Inside the square
+                this->grid.flag_field(i, j) = FlagFieldMask::CELL_OBSTACLE;
+
+                // Top Layer of the square
+                if (j == distanceTop) {
+                    // South neighbor
+                    this->grid.flag_field(i, j) |= FlagFieldMask::FLUID_SOUTH;
+                }
+                if (j == distanceBottom) {
+                    // North neighbor
+                    this->grid.flag_field(i, j) |= FlagFieldMask::FLUID_NORTH;
+                }
+                if (i == distanceLeft) {
+                    // West neighbor
+                    this->grid.flag_field(i, j) |= FlagFieldMask::FLUID_WEST;
+                }
+                if (i == distanceRight) {
+                    // East neighbor
+                    this->grid.flag_field(i, j) |= FlagFieldMask::FLUID_EAST;
+                } 
+            }
+        }
+    }
+
     /*// loop through flag field and print with std::bitset
     for (int i = 0; i < this->grid.imax + 2; i++) {
         for (int j = 0; j < this->grid.jmax + 2; j++) {

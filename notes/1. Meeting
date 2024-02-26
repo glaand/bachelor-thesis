@@ -2,3 +2,5 @@
 - The bigger the grid size, the more preconditioner sweeps are needed for MGPCG to converge. Why is that?
 - Are the defined problems enough for the bachelor thesis?
 - Eigenvalue analysis? skip it?
+- why when beta is not resetted, it is so fast?
+- When using multigrid as a initial guess on the MGPCG, it seems like that the system becomes more well-conditioned, making the CG more stable and less sensitive to variations in the input.

@@ -15,14 +15,10 @@ void FluidSimulation::solveWithMultigridPCG() {
     this->alpha_bottom_cg = 0.0;
     this->beta_cg = 0.0;
 
-    // Initial residual vector of Ax=b
+    // Initial residual vector of Ax=b with aid of one sweep of the multigrid method
+    Multigrid::vcycle(this->multigrid_hierarchy, this->multigrid_hierarchy->numLevels() - 1, this->omg, 1);
     for (int i = 1; i < this->grid.imax + 1; i++) {
         for (int j = 1; j < this->grid.jmax + 1; j++) {
-            this->grid.res(i,j) = this->grid.RHS(i,j) - (
-                // Sparse matrix A
-                (1/this->grid.dx2)*(this->grid.p(i+1,j) - 2*this->grid.p(i,j) + this->grid.p(i-1,j)) +
-                (1/this->grid.dy2)*(this->grid.p(i,j+1) - 2*this->grid.p(i,j) + this->grid.p(i,j-1))
-            );
             this->preconditioner.RHS(i,j) = this->grid.res(i,j);
             this->preconditioner.p(i,j) = 0;
         }
@@ -33,7 +29,7 @@ void FluidSimulation::solveWithMultigridPCG() {
     }
 
     // Initial guess for error vector
-    Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, std::max(this->imax, this->jmax));
+    Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, 1);
 
     // Initial search vector
     this->grid.search_vector = this->preconditioner.p;
@@ -86,7 +82,7 @@ void FluidSimulation::solveWithMultigridPCG() {
         }
         
         // New guess for error vector
-        Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, std::max(this->imax, this->jmax));
+        Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, 1);
 
         // Calculate beta
         for (int i = 1; i < this->grid.imax + 1; i++) {
