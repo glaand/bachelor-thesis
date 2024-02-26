@@ -3,12 +3,11 @@
 using namespace CFD;
 
 void FluidSimulation::solveWithJacobi() {
-    // reset norm check
-    this->res_norm = 0.0;
-
+    this->resetPressure();
     this->setBoundaryConditionsP();
     this->setBoundaryConditionsPGeometry();
 
+    this->res_norm = 0.0;
     while (this->res_norm > this->eps || this->res_norm == 0) {
         // Jacobi smoother with relaxation factor (omega)
         for (int i = 1; i <= this->grid.imax; i++) {

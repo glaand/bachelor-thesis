@@ -31,9 +31,9 @@ namespace CFD {
     };
 
     namespace Multigrid {
-        void vcycle(MultigridHierarchy *hierarchy, int currentLevel, double omg, int numSweeps);
+        void vcycle(MultigridHierarchy *hierarchy, int currentLevel, float omg, int numSweeps);
         void restrict_operator(const StaggeredGrid* fine, StaggeredGrid* coarse);
         void prolongate_operator(const StaggeredGrid* coarse, StaggeredGrid* fine);
-        void relax(StaggeredGrid* grid, int numSweeps, double omg);
+        void relax(StaggeredGrid* grid, int numSweeps, float omg);
     }
 }

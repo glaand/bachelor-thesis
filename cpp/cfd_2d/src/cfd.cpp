@@ -6,7 +6,7 @@
 namespace CFD {
     namespace ME_X {
         // Slide 15
-        double uu_x(StaggeredGrid *grid, FluidSimulation *sim, int i, int j) {
+        float uu_x(StaggeredGrid *grid, FluidSimulation *sim, int i, int j) {
             return (
                 (
                     (1/grid->dx)*(pow((grid->u(i,j) + grid->u(i+1,j))/2,2) - pow((grid->u(i-1,j)+grid->u(i,j))/2,2))
@@ -18,7 +18,7 @@ namespace CFD {
             );
         }
 
-        double uv_y(StaggeredGrid *grid, FluidSimulation *sim, int i, int j) {
+        float uv_y(StaggeredGrid *grid, FluidSimulation *sim, int i, int j) {
             return (
                 (
                     (1/grid->dy)*((grid->v(i,j) + grid->v(i+1,j))*(grid->u(i,j) + grid->u(i,j+1))/4 - (grid->v(i,j-1) + grid->v(i+1,j-1))*(grid->u(i,j-1) + grid->u(i,j))/4)
@@ -30,19 +30,19 @@ namespace CFD {
             );
         }
 
-        double uu_xx(StaggeredGrid *grid, FluidSimulation *sim, int i, int j) {
+        float uu_xx(StaggeredGrid *grid, FluidSimulation *sim, int i, int j) {
             return (
                 (grid->u(i+1,j) - 2*grid->u(i,j) + grid->u(i-1,j))/pow(grid->dx, 2)
             );
         }
 
-        double uu_yy(StaggeredGrid *grid, FluidSimulation *sim, int i, int j) {
+        float uu_yy(StaggeredGrid *grid, FluidSimulation *sim, int i, int j) {
             return (
                 (grid->u(i,j+1) - 2*grid->u(i,j) + grid->u(i,j-1))/pow(grid->dy, 2)
             );
         }
 
-        double p_x(StaggeredGrid *grid, FluidSimulation *sim, int i, int j) {
+        float p_x(StaggeredGrid *grid, FluidSimulation *sim, int i, int j) {
             return (
                 (grid->p(i+1,j) - grid->p(i,j))/grid->dx
             );
@@ -50,7 +50,7 @@ namespace CFD {
     }
 
     namespace ME_Y {
-        double uv_x(StaggeredGrid *grid, FluidSimulation *sim, int i, int j) {
+        float uv_x(StaggeredGrid *grid, FluidSimulation *sim, int i, int j) {
             return (
                 (
                     (1/grid->dx)*((grid->u(i,j) + grid->u(i,j+1))*(grid->v(i,j) + grid->v(i+1,j))/4 - (grid->u(i-1,j) + grid->u(i-1,j+1))*(grid->v(i-1,j) + grid->v(i,j))/4)
@@ -62,7 +62,7 @@ namespace CFD {
             );
         }
 
-        double vv_y(StaggeredGrid *grid, FluidSimulation *sim, int i, int j) {
+        float vv_y(StaggeredGrid *grid, FluidSimulation *sim, int i, int j) {
             return (
                 (
                     (1/grid->dy)*(pow((grid->v(i,j) + grid->v(i,j+1))/2,2) - pow((grid->v(i,j-1)+grid->v(i,j))/2,2))
@@ -74,19 +74,19 @@ namespace CFD {
             );
         }
 
-        double vv_xx(StaggeredGrid *grid, FluidSimulation *sim, int i, int j) {
+        float vv_xx(StaggeredGrid *grid, FluidSimulation *sim, int i, int j) {
             return (
                 (grid->v(i+1,j) - 2*grid->v(i,j) + grid->v(i-1,j))/pow(grid->dx, 2)
             );
         }
 
-        double vv_yy(StaggeredGrid *grid, FluidSimulation *sim, int i, int j) {
+        float vv_yy(StaggeredGrid *grid, FluidSimulation *sim, int i, int j) {
             return (
                 (grid->v(i,j+1) - 2*grid->v(i,j) + grid->v(i,j-1))/pow(grid->dy, 2)
             );
         }
 
-        double p_y(StaggeredGrid *grid, FluidSimulation *sim, int i, int j) {
+        float p_y(StaggeredGrid *grid, FluidSimulation *sim, int i, int j) {
             return (
                 (grid->p(i,j+1) - grid->p(i,j))/grid->dy
             );
@@ -94,21 +94,21 @@ namespace CFD {
     }
 
     namespace CE {
-        double u_x(StaggeredGrid *grid, FluidSimulation *sim, int i, int j) {
+        float u_x(StaggeredGrid *grid, FluidSimulation *sim, int i, int j) {
             return (
                 (grid->u(i,j) - grid->u(i-1,j))/(grid->dx)
             );
         }
 
-        double v_y(StaggeredGrid *grid, FluidSimulation *sim, int i, int j) {
+        float v_y(StaggeredGrid *grid, FluidSimulation *sim, int i, int j) {
             return (
                 (grid->v(i,j) - grid->v(i,j-1))/(grid->dy)
             );
         }
     }
 
-    double StaggeredGrid::findMaxAbsoluteU() const {
-        double max = 0.0;
+    float StaggeredGrid::findMaxAbsoluteU() const {
+        float max = 0.0;
         for (int i = 1; i < imax + 1; i++) {
             for (int j = 1; j < jmax + 2; j++) {
                 if (std::abs(u(i, j)) > max) {
@@ -118,8 +118,8 @@ namespace CFD {
         }
         return max;
     }
-    double StaggeredGrid::findMaxAbsoluteV() const {
-        double max = 0.0;
+    float StaggeredGrid::findMaxAbsoluteV() const {
+        float max = 0.0;
         for (int i = 1; i < imax + 2; i++) {
             for (int j = 1; j < jmax + 1; j++) {
                 if (std::abs(v(i, j)) > max) {
@@ -137,10 +137,21 @@ namespace CFD {
             }
         }
     }
+    void FluidSimulation::resetPressure() {
+        this->p_norm = this->grid.p.norm();
+        if (this->p_norm < 1) {
+            this->p_norm = 1/this->p_norm;
+        }
+        for (int i = 0; i < this->grid.imax + 2; i++) {
+            for (int j = 0; j < this->grid.jmax + 2; j++) {
+                this->grid.p(i, j) /= this->p_norm;
+            }
+        }
+    }
     void FluidSimulation::selectDtAccordingToStabilityCondition() {
-        double left = (this->Re/2) * pow(((1/pow(this->grid.dx, 2))+(1/pow(this->grid.dy, 2))), -1);
-        double middle = this->grid.dx / this->grid.findMaxAbsoluteU();
-        double right = this->grid.dy / this->grid.findMaxAbsoluteV();
+        float left = (this->Re/2) * pow(((1/pow(this->grid.dx, 2))+(1/pow(this->grid.dy, 2))), -1);
+        float middle = this->grid.dx / this->grid.findMaxAbsoluteU();
+        float right = this->grid.dy / this->grid.findMaxAbsoluteV();
         this->dt = this->tau * std::min(std::min(left, middle), right);
     }
 
@@ -232,7 +243,7 @@ namespace CFD {
 
     void FluidSimulation::setBoundaryConditionsPGeometry() {
         // Geometry boundaries
-        double tmp_p = 0.0;
+        float tmp_p = 0.0;
         int counter = 0;
         for (int i = 1; i < this->grid.imax + 1; i++) {
             for (int j = 1; j < this->grid.jmax + 1; j++) {
@@ -349,7 +360,7 @@ namespace CFD {
     }
 
     void FluidSimulation::run() {
-        double last_saved = 0.0;
+        float last_saved = 0.0;
         std::string solver_name = "";
 
         if (!this->no_vtk) {
@@ -464,8 +475,8 @@ namespace CFD {
             this->setBoundaryConditionsV();
             this->setBoundaryConditionsVelocityGeometry();
             this->setBoundaryConditionsPGeometry();
+            std::cout << "Solver: " << solver_name << " t: " << this->t << " dt: " << this->dt << " res: " << this->res_norm << std::endl;
             if (this->t - last_saved >= this->save_interval) {
-                std::cout << "Solver: " << solver_name << " t: " << this->t << " dt: " << this->dt << " res: " << this->res_norm << std::endl;
                 this->grid.interpolateVelocity();
                 this->setBoundaryConditionsInterpolatedVelocityGeometry();
                 if (!this->no_vtk) {

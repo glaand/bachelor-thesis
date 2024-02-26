@@ -13,8 +13,8 @@ namespace CFD {
         StaggeredGrid(
             const int p_imax = 50,
             const int p_jmax = 50,
-            const double p_xlength = 1.0,
-            const double p_ylength = 1.0
+            const float p_xlength = 1.0,
+            const float p_ylength = 1.0
         ) {
             imax = p_imax;
             jmax = p_jmax;
@@ -42,18 +42,18 @@ namespace CFD {
             dy2 = dy * dy;
             dx2dy2 = dx2 * dy2;
         }
-        double findMaxAbsoluteU() const;
-        double findMaxAbsoluteV() const;
+        float findMaxAbsoluteU() const;
+        float findMaxAbsoluteV() const;
         void interpolateVelocity();
-        double dx;
-        double dy;
-        double dx2;
-        double dy2;
-        double dx2dy2;
+        float dx;
+        float dy;
+        float dx2;
+        float dy2;
+        float dx2dy2;
         int imax;
         int jmax;
-        double xlength;
-        double ylength;
+        float xlength;
+        float ylength;
         MatrixXf p;
         MatrixXf po;
         MatrixXf RHS;

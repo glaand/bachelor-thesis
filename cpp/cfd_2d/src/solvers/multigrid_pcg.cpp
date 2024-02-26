@@ -3,6 +3,7 @@
 using namespace CFD;
 
 void FluidSimulation::solveWithMultigridPCG() {
+    this->resetPressure();
     this->setBoundaryConditionsP();
     this->setBoundaryConditionsPGeometry();
 
@@ -15,20 +16,16 @@ void FluidSimulation::solveWithMultigridPCG() {
     this->beta_cg = 0.0;
     this->beta_top_cg = 0.0;
 
-    // 1x Jacobi smoother with relaxation factor (omega)
-    for (int i = 1; i <= this->grid.imax; i++) {
-        for (int j = 1; j <= this->grid.jmax; j++) {
-            this->grid.po(i,j) = this->grid.p(i,j); // smart residual preparation
-            this->grid.p(i, j) = (
-                (1/(-2*this->grid.dx2 - 2*this->grid.dy2)) // 1/Aii
-                *
-                (
-                    this->grid.RHS(i,j)*this->grid.dx2dy2 - this->grid.dy2*(this->grid.p(i+1,j) + this->grid.p(i-1,j)) - this->grid.dx2*(this->grid.p(i,j+1) + this->grid.p(i,j-1))
-                )
+    // Initial residual vector of Ax=b
+    for (int i = 1; i < this->grid.imax + 1; i++) {
+        for (int j = 1; j < this->grid.jmax + 1; j++) {
+            this->grid.res(i,j) = this->grid.RHS(i,j) - (
+                // Sparse matrix A
+                (1/this->grid.dx2)*(this->grid.p(i+1,j) - 2*this->grid.p(i,j) + this->grid.p(i-1,j)) +
+                (1/this->grid.dy2)*(this->grid.p(i,j+1) - 2*this->grid.p(i,j) + this->grid.p(i,j-1))
             );
-            this->grid.res(i, j) = this->grid.po(i, j) - this->grid.p(i, j);
-            this->preconditioner.RHS(i, j) = this->grid.res(i, j);
-            this->preconditioner.p(i, j) = 0;
+            this->preconditioner.RHS(i,j) = this->grid.res(i,j);
+            this->preconditioner.p(i,j) = 0;
         }
     }
 
@@ -37,7 +34,7 @@ void FluidSimulation::solveWithMultigridPCG() {
     }
 
     // Initial guess for error vector
-    Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, 1, 1);
+    Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, 1, std::min(this->imax, this->jmax));
 
     // Initial search vector
     this->grid.search_vector = this->preconditioner.p;

@@ -43,17 +43,17 @@ namespace CFD {
             FluidParams(const std::string name, int argc, char* argv[]);
             int imax = 100;
             int jmax = 100;
-            double xlength = 1.0;
-            double ylength = 1.0;
-            double t_end = 5.0;
-            double tau = 0.5;
-            double eps = 1e-3;
-            double omg = 1.0;
-            double alpha = 0.9;
-            double Re = 100.0;
-            double t = 0;
-            double dt = 0.05;
-            double save_interval = 0.5;
+            float xlength = 1.0;
+            float ylength = 1.0;
+            float t_end = 5.0;
+            float tau = 0.5;
+            float eps = 1e-3;
+            float omg = 1.0;
+            float alpha = 0.9;
+            float Re = 100.0;
+            float t = 0;
+            float dt = 0.05;
+            float save_interval = 0.5;
             bool save_ml = false;
             bool no_vtk = false;
             SolverType solver_type = SolverType::JACOBI;
@@ -89,17 +89,18 @@ namespace CFD {
             }
             int imax;
             int jmax;
-            double xlength;
-            double ylength;
-            double t_end;
-            double tau;
-            double eps;
-            double omg;
-            double alpha;
-            double Re;
-            double t;
-            double dt;
-            double res_norm;
+            float xlength;
+            float ylength;
+            float t_end;
+            float tau;
+            float eps;
+            float omg;
+            float alpha;
+            float Re;
+            float t;
+            float dt;
+            float p_norm;
+            float res_norm;
             int it = 0;
             int it_wo_pressure_solver = 0;
             int lastTimestamp = 0;
@@ -107,7 +108,7 @@ namespace CFD {
             StaggeredGrid grid;
             Kernel::Timer timer;
             SolverType solver_type;
-            double save_interval;
+            float save_interval;
             bool save_ml;
             bool no_vtk;
             VectorXd res_norm_over_it_with_pressure_solver;
@@ -117,11 +118,11 @@ namespace CFD {
             // Conjugate Gradient components
             int n_cg = 0;
             int maxiterations_cg;
-            double alpha_cg = 0.0;
-            double alpha_top_cg = 0.0;
-            double alpha_bottom_cg = 0.0;
-            double beta_cg = 0.0;
-            double beta_top_cg = 0.0;
+            float alpha_cg = 0.0;
+            float alpha_top_cg = 0.0;
+            float alpha_bottom_cg = 0.0;
+            float beta_cg = 0.0;
+            float beta_top_cg = 0.0;
 
             // Multigrid components
             MultigridHierarchy *multigrid_hierarchy;
@@ -133,6 +134,7 @@ namespace CFD {
             // Deep Learning
             torch::jit::script::Module model;
 
+            void resetPressure();
             void selectDtAccordingToStabilityCondition();
             void computeF();
             void computeG();

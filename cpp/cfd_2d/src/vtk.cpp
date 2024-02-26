@@ -3,7 +3,7 @@
 #include <vtkStructuredGrid.h>
 #include <vtkUnstructuredGrid.h>
 #include <vtkPoints.h>
-#include <vtkDoubleArray.h>
+#include <vtkFloatArray.h>
 #include <vtkPointData.h>
 #include <vtkXMLStructuredGridWriter.h>
 #include <vtkXMLUnstructuredGridWriter.h>
@@ -23,12 +23,12 @@ void CFD::saveVTK(FluidSimulation* sim) {
     vtk_grid->SetPoints(points);
 
     // Add pressure data to the grid
-    vtkSmartPointer<vtkDoubleArray> pressure_array = vtkSmartPointer<vtkDoubleArray>::New();
+    vtkSmartPointer<vtkFloatArray> pressure_array = vtkSmartPointer<vtkFloatArray>::New();
     pressure_array->SetNumberOfComponents(1);
     pressure_array->SetName("Pressure");
 
     // Add velocity data to the grid as a vector field
-    vtkSmartPointer<vtkDoubleArray> velocity_array = vtkSmartPointer<vtkDoubleArray>::New();
+    vtkSmartPointer<vtkFloatArray> velocity_array = vtkSmartPointer<vtkFloatArray>::New();
     velocity_array->SetNumberOfComponents(3);  // 3 components for the vector (VelocityX, VelocityY, 0)
     velocity_array->SetComponentName(0, "VelocityX");
     velocity_array->SetComponentName(1, "VelocityY");

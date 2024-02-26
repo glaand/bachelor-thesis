@@ -1,0 +1,3 @@
+- Can i use my invetend scaler for the pressure equation?
+- The bigger the grid size, the more preconditioner sweeps are needed for MGPCG to converge. Why is that?
+- Are the defined problems enough for the bachelor thesis?

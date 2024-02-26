@@ -6,6 +6,7 @@ void FluidSimulation::solveWithMultigridJacobi() {
     // reset norm check
     this->res_norm = 0.0;
 
+    this->resetPressure();
     this->setBoundaryConditionsP();
     this->setBoundaryConditionsPGeometry();
 

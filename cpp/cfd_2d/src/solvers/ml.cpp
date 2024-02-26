@@ -20,7 +20,7 @@ void FluidSimulation::inferenceExp1() {
 }
 
 void FluidSimulation::solveWithML() {
-
+    this->resetPressure();
     this->setBoundaryConditionsP();
     this->setBoundaryConditionsPGeometry();
 

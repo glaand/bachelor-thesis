@@ -2,7 +2,7 @@
 
 using namespace CFD;
 
-void Multigrid::vcycle(MultigridHierarchy *hierarchy, int currentLevel, double omg, int numSweeps) {
+void Multigrid::vcycle(MultigridHierarchy *hierarchy, int currentLevel, float omg, int numSweeps) {
     // Briggs, Multigrid Tutorial, p. 41
     // reusing p and RHS for error and residual for simplicity and memory efficiency
     // (Ae = res) and (Ap = RHS)
@@ -32,6 +32,13 @@ void Multigrid::restrict_operator(const StaggeredGrid *fine, StaggeredGrid *coar
     // Restrict with full weighting
     // Briggs, Multigrid Tutorial, p. 36
 
+    // Reset coarse p
+    for (int i = 0; i < coarse->imax + 2; i++) {
+        for (int j = 0; j < coarse->jmax + 2; j++) {
+            coarse->p(i,j) = 0;
+        }
+    }
+
     // Restrict res^h to RHS^{2h} but saving on RHS^{2h}
     for (int i = 1; i <= coarse->imax; i++) {
         for (int j = 1; j <= coarse->jmax; j++) {
@@ -59,7 +66,7 @@ void Multigrid::prolongate_operator(const StaggeredGrid *coarse, StaggeredGrid *
     }
 }
 
-void Multigrid::relax(StaggeredGrid *grid, int numSweeps, double omg) {
+void Multigrid::relax(StaggeredGrid *grid, int numSweeps, float omg) {
     // Relaxation with Jacobi
     // Its in abstract form, so it can be used for (Ae = res) or (Ap = RHS)
     
