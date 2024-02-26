@@ -79,6 +79,7 @@ namespace CFD {
                 solver_type = params.solver_type;
                 save_interval = params.save_interval;
                 res_norm = 0.0;
+                e_norm = 0.0;
                 multigrid_hierarchy = nullptr;
                 res_norm_over_it_with_pressure_solver = VectorXd::Zero(1e7);
                 res_norm_over_it_without_pressure_solver = VectorXd::Zero(1e7);
@@ -100,6 +101,7 @@ namespace CFD {
             float t;
             float dt;
             float p_norm;
+            float e_norm;
             float res_norm;
             int it = 0;
             int it_wo_pressure_solver = 0;

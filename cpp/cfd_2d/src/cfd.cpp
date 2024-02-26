@@ -475,7 +475,7 @@ namespace CFD {
             this->setBoundaryConditionsV();
             this->setBoundaryConditionsVelocityGeometry();
             this->setBoundaryConditionsPGeometry();
-            std::cout << "Solver: " << solver_name << " t: " << this->t << " dt: " << this->dt << " res: " << this->res_norm << std::endl;
+            std::cout << "Solver: " << solver_name << "\t" << " t: " << this->t << "\t" << " dt: " << this->dt << "\t" << " res: " << this->res_norm << "\t" << " p-norm: " << this->p_norm << std::endl;
             if (this->t - last_saved >= this->save_interval) {
                 this->grid.interpolateVelocity();
                 this->setBoundaryConditionsInterpolatedVelocityGeometry();

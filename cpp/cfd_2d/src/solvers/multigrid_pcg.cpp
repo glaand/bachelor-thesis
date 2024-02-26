@@ -14,7 +14,6 @@ void FluidSimulation::solveWithMultigridPCG() {
     this->alpha_top_cg = 0.0;
     this->alpha_bottom_cg = 0.0;
     this->beta_cg = 0.0;
-    this->beta_top_cg = 0.0;
 
     // Initial residual vector of Ax=b
     for (int i = 1; i < this->grid.imax + 1; i++) {
@@ -34,7 +33,7 @@ void FluidSimulation::solveWithMultigridPCG() {
     }
 
     // Initial guess for error vector
-    Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, 1, std::min(this->imax, this->jmax));
+    Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, std::max(this->imax, this->jmax));
 
     // Initial search vector
     this->grid.search_vector = this->preconditioner.p;
@@ -42,6 +41,7 @@ void FluidSimulation::solveWithMultigridPCG() {
     while ((this->res_norm > this->eps || this->res_norm == 0) && this->n_cg < this->maxiterations_cg) {
         this->alpha_top_cg = 0.0;
         this->alpha_bottom_cg = 0.0;
+        this->res_norm = 0.0;
 
         // Calculate alpha
         // Laplacian operator of error_vector from multigrid, because of dot product of <A, Pi>, A-Matrix is the laplacian operator
@@ -58,14 +58,13 @@ void FluidSimulation::solveWithMultigridPCG() {
         }
         this->alpha_cg = this->alpha_top_cg/this->alpha_bottom_cg;
 
-        this->res_norm = 0.0;
-
         // Update pressure and new residual
         for (int i = 1; i < this->grid.imax + 1; i++) {
             for (int j = 1; j < this->grid.jmax + 1; j++) {
                 this->grid.po(i,j) = this->grid.p(i,j); // smart residual preparation
                 this->grid.p(i,j) += this->alpha_cg*this->grid.search_vector(i,j);
                 this->grid.res(i,j) -= this->alpha_cg*this->grid.Asearch_vector(i,j);
+                this->preconditioner.p(i,j) = 0;
                 this->preconditioner.RHS(i,j) = this->grid.res(i,j);
                 this->res_norm += pow((this->grid.po(i,j) - this->grid.p(i,j)), 2);
             }
@@ -87,7 +86,7 @@ void FluidSimulation::solveWithMultigridPCG() {
         }
         
         // New guess for error vector
-        Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, 1, 1);
+        Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, std::max(this->imax, this->jmax));
 
         // Calculate beta
         for (int i = 1; i < this->grid.imax + 1; i++) {
@@ -95,7 +94,7 @@ void FluidSimulation::solveWithMultigridPCG() {
                 this->beta_top_cg += this->preconditioner.p(i,j)*this->grid.res(i,j);
             }
         }
-        this->beta_cg = this->beta_top_cg/this->alpha_top_cg;
+        this->beta_cg = -this->beta_top_cg/this->alpha_top_cg;
 
         // Calculate new search vector
         for (int i = 1; i < this->grid.imax + 1; i++) {
