@@ -9,11 +9,11 @@ void FluidSimulation::solveWithConjugatedGradient() {
 
     // reset norm check
     this->res_norm = 0.0;
-    int n = 0;
     double lambda = 0.0;
     double alpha_top = 0.0;
     double alpha_bottom = 0.0;
     double alpha_top_new = 0.0;
+    this->n_cg = 0;
     int maxiterations = std::max(this->grid.imax, this->grid.jmax);
 
     // Initial residual vector of Ax=b
@@ -30,7 +30,7 @@ void FluidSimulation::solveWithConjugatedGradient() {
         }
     }
 
-    while ((this->res_norm > this->eps || this->res_norm == 0) && n < maxiterations) {
+    while ((this->res_norm > this->eps || this->res_norm == 0) && this->n_cg < maxiterations) {
         alpha_bottom = 0.0;
         // Laplacian operator of grid.res, because of dot product of <res, Asearch_vector>, A-Matrix is the laplacian operator
         for (int i = 1; i < this->grid.imax + 1; i++) {
@@ -67,7 +67,7 @@ void FluidSimulation::solveWithConjugatedGradient() {
         this->computeDiscreteL2Norm();
         this->res_norm_over_it_with_pressure_solver(this->it) = this->res_norm;
         this->it++;
-        n++;
+        this->n_cg++;
     }
     this->setBoundaryConditionsP();
     this->setBoundaryConditionsPGeometry();

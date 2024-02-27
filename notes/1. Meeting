@@ -4,3 +4,6 @@
 - Eigenvalue analysis? skip it?
 - why when beta is not resetted, it is so fast?
 - When using multigrid as a initial guess on the MGPCG, it seems like that the system becomes more well-conditioned, making the CG more stable and less sensitive to variations in the input.
+- Are there benchmarks for the karman vortex street?
+- Restriction / Prolongation operators with deep learning
+- Do i need to set the boundary conditions on each coarse grid of multigrid?

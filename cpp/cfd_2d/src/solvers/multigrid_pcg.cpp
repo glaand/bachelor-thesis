@@ -17,6 +17,7 @@ void FluidSimulation::solveWithMultigridPCG() {
 
     // Initial residual vector of Ax=b with aid of one sweep of the multigrid method
     Multigrid::vcycle(this->multigrid_hierarchy, this->multigrid_hierarchy->numLevels() - 1, this->omg, 1);
+
     for (int i = 1; i < this->grid.imax + 1; i++) {
         for (int j = 1; j < this->grid.jmax + 1; j++) {
             this->preconditioner.RHS(i,j) = this->grid.res(i,j);
@@ -37,6 +38,7 @@ void FluidSimulation::solveWithMultigridPCG() {
     while ((this->res_norm > this->eps || this->res_norm == 0) && this->n_cg < this->maxiterations_cg) {
         this->alpha_top_cg = 0.0;
         this->alpha_bottom_cg = 0.0;
+        this->beta_top_cg = 0.0;
         this->res_norm = 0.0;
 
         // Calculate alpha
