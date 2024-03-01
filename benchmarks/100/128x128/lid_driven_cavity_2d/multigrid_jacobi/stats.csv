@@ -1,2 +1,2 @@
 Solver,Resolution,RE,Elapsed Time,Memory Consumed
-multigrid_jacobi,128,100,172.345895575,25320
+multigrid_jacobi,128,100,1823.947525827,283260

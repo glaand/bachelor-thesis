@@ -1,3 +1,9 @@
+# Simulation files
+*.vtu
+*.vts
+*.dat
+*.completed
+
 # Prerequisites
 *.d
 

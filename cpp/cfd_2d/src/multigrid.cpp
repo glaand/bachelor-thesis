@@ -9,7 +9,7 @@ void Multigrid::vcycle(MultigridHierarchy *hierarchy, int currentLevel, float om
 
     if (currentLevel == 0) {
         // Relax on the coarset grid
-        relax(hierarchy->grids[0].get(), numSweeps, omg);
+        relax(hierarchy->grids[0].get(), 1000, omg);
     } else {
         // Relax on the current grid
         relax(hierarchy->grids[currentLevel].get(), numSweeps, omg);
@@ -40,8 +40,8 @@ void Multigrid::restrict_operator(const StaggeredGrid *fine, StaggeredGrid *coar
     }
 
     // Restrict res^h to RHS^{2h} but saving on RHS^{2h}
-    for (int i = 1; i <= coarse->imax; i++) {
-        for (int j = 1; j <= coarse->jmax; j++) {
+    for (int i = 1; i < coarse->imax + 1; i++) {
+        for (int j = 1; j < coarse->jmax + 1; j++) {
             coarse->RHS(i,j) = 0.0625*(
                 fine->res(2*i-1,2*j-1) + fine->res(2*i-1,2*j+1) + fine->res(2*i+1,2*j-1) + fine->res(2*i+1,2*j+1)
                 + 2 * (fine->res(2*i,2*j-1) + fine->res(2*i,2*j+1) + fine->res(2*i-1,2*j) + fine->res(2*i+1,2*j))
@@ -56,8 +56,8 @@ void Multigrid::prolongate_operator(const StaggeredGrid *coarse, StaggeredGrid *
     // Briggs, Multigrid Tutorial, p. 35
 
     // Prolongate p^{2h} to p^{2h} adding p^{2h}
-    for (int i = 0; i <= coarse->imax; i++) {
-        for (int j = 0; j <= coarse->jmax; j++) {
+    for (int i = 1; i < coarse->imax + 1; i++) {
+        for (int j = 1; j < coarse->jmax + 1; j++) {
             fine->p(2*i,2*j) += coarse->p(i,j);
             fine->p(2*i+1,2*j) += 0.5 * (coarse->p(i,j) + coarse->p(i+1,j));
             fine->p(2*i,2*j+1) += 0.5 * (coarse->p(i,j) + coarse->p(i,j+1));
@@ -72,8 +72,8 @@ void Multigrid::relax(StaggeredGrid *grid, int numSweeps, float omg) {
     
     for (int sweep = 0; sweep < numSweeps; sweep++) {
         // Jacobi smoother with relaxation factor (omega)
-        for (int i = 1; i <= grid->imax; i++) {
-            for (int j = 1; j <= grid->jmax; j++) {
+        for (int i = 1; i < grid->imax + 1; i++) {
+            for (int j = 1; j < grid->jmax + 1; j++) {
                 grid->po(i, j) = grid->p(i, j);
                 grid->p(i, j) = (
                     (1/(-2*grid->dx2 - 2*grid->dy2)) // 1/Aii

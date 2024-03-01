@@ -14,8 +14,8 @@ void CFD::saveVTK(FluidSimulation* sim) {
 
     // Create vtk points
     vtkSmartPointer<vtkPoints> points = vtkSmartPointer<vtkPoints>::New();
-    for (int j = 0; j < sim->jmax; ++j) {
-        for (int i = 0; i < sim->imax; ++i) {
+    for (int j = 1; j < sim->jmax + 1; ++j) {
+        for (int i = 1; i < sim->imax + 1; ++i) {
             points->InsertNextPoint(i * sim->grid.dx, j * sim->grid.dy, 0);
         }
     }
@@ -35,8 +35,8 @@ void CFD::saveVTK(FluidSimulation* sim) {
     velocity_array->SetComponentName(2, "VelocityZ");  // Z component is set to 0
     velocity_array->SetName("Velocity");
 
-    for (int j = 0; j < sim->jmax; ++j) {
-        for (int i = 0; i < sim->imax; ++i) {
+    for (int j = 1; j < sim->jmax + 1; ++j) {
+        for (int i = 1; i < sim->imax + 1; ++i) {
             pressure_array->InsertNextValue(sim->grid.p.coeffRef(i, j));
             velocity_array->InsertNextTuple3(sim->grid.u_interpolated.coeffRef(i, j),
                                              sim->grid.v_interpolated.coeffRef(i, j),
@@ -65,14 +65,14 @@ void CFD::saveVTKGeometry(FluidSimulation* sim) {
 
     // Create vtk points
     vtkSmartPointer<vtkPoints> points = vtkSmartPointer<vtkPoints>::New();
-    for (int j = 0; j < sim->jmax; ++j) {
-        for (int i = 0; i < sim->imax; ++i) {
+    for (int j = 1; j < sim->jmax + 1; ++j) {
+        for (int i = 1; i < sim->imax + 1; ++i) {
             points->InsertNextPoint(i * sim->grid.dx, j * sim->grid.dy, 0.0);  // Assuming 2D, setting z-coordinate to 0.0
         }
     }
 
-    for (int j = 1; j < sim->jmax; ++j) {
-        for (int i = 1; i < sim->imax; ++i) {
+    for (int j = 1; j < sim->jmax + 1; ++j) {
+        for (int i = 1; i < sim->imax + 1; ++i) {
             if (sim->isObstacleCell(i, j)) {
                 startI = std::min(startI, i);
                 startJ = std::min(startJ, j);

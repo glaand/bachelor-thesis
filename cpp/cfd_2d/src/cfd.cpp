@@ -138,13 +138,9 @@ namespace CFD {
         }
     }
     void FluidSimulation::resetPressure() {
-        this->p_norm = this->grid.p.norm();
-        if (this->p_norm < 1) {
-            this->p_norm = 1/this->p_norm;
-        }
         for (int i = 0; i < this->grid.imax + 2; i++) {
             for (int j = 0; j < this->grid.jmax + 2; j++) {
-                this->grid.p(i, j) /= this->p_norm;
+                this->grid.p(i, j) = 0;
             }
         }
     }
@@ -167,11 +163,6 @@ namespace CFD {
                 );
             }
         }
-        // Boundary conditions
-        for (int j = 0; j < this->grid.jmax + 3; j++) {
-            this->grid.F(0, j) = this->grid.u(0, j);
-            this->grid.F(this->grid.imax, j) = this->grid.u(this->grid.imax, j);
-        }
     }
 
     void FluidSimulation::computeG() {
@@ -185,11 +176,6 @@ namespace CFD {
                     ME_Y::vv_y(&this->grid, this, i, j)
                 );
             }
-        }
-        // Boundary conditions
-        for (int i = 0; i < this->grid.imax + 3; i++) {
-            this->grid.G(i, 0) = this->grid.v(i, 0);
-            this->grid.G(i, this->grid.jmax) = this->grid.v(i, this->grid.jmax);
         }
     }
 
@@ -240,6 +226,7 @@ namespace CFD {
             }
         }
     }
+
 
     void FluidSimulation::setBoundaryConditionsPGeometry() {
         // Geometry boundaries
@@ -462,6 +449,8 @@ namespace CFD {
             this->setBoundaryConditionsVelocityGeometry();
             this->computeF();
             this->computeG();
+            this->setBoundaryConditionsU();
+            this->setBoundaryConditionsV();
             this->setBoundaryConditionsVelocityGeometry();
             this->computeRHS();
             

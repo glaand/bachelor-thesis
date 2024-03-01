@@ -30,7 +30,7 @@ void FluidSimulation::solveWithConjugatedGradient() {
         }
     }
 
-    while ((this->res_norm > this->eps || this->res_norm == 0) && this->n_cg < maxiterations) {
+    while ((this->res_norm > this->eps || this->res_norm == 0)) {
         alpha_bottom = 0.0;
         // Laplacian operator of grid.res, because of dot product of <res, Asearch_vector>, A-Matrix is the laplacian operator
         for (int i = 1; i < this->grid.imax + 1; i++) {
