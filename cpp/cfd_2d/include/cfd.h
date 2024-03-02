@@ -84,6 +84,7 @@ namespace CFD {
                 res_norm_over_it_with_pressure_solver = VectorXd::Zero(1e8);
                 res_norm_over_it_without_pressure_solver = VectorXd::Zero(1e8);
                 res_norm_over_time = VectorXd::Zero(1e8);
+                betas = VectorXd::Zero(1e8);
                 save_ml = params.save_ml;
                 no_vtk = params.no_vtk;
                 maxiterations_cg = std::max(imax, jmax);
@@ -116,6 +117,7 @@ namespace CFD {
             VectorXd res_norm_over_it_with_pressure_solver;
             VectorXd res_norm_over_it_without_pressure_solver;
             VectorXd res_norm_over_time;
+            VectorXd betas;
 
             // Conjugate Gradient components
             int n_cg = 0;

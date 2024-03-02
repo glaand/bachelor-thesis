@@ -7,14 +7,14 @@ void FluidSimulation::inferenceExp1() {
     auto options = torch::TensorOptions().dtype(torch::kFloat);
     torch::Tensor T = torch::from_blob(this->grid.res.data(), {this->grid.res.rows(), this->grid.res.cols()}, options).clone();
     T = T.to(torch::kCUDA);
-    T = T.unsqueeze(0);
+    T = T.unsqueeze(0).unsqueeze(0);
     auto output = this->model.forward({ T }).toTensor();
-    output = output.to(torch::kCPU).squeeze(0);
+    output = output.to(torch::kCPU).squeeze(0).squeeze(0);
     float* output_ptr = output.data_ptr<float>();
 
     for (int i = 1; i < this->grid.imax + 1; i++) {
         for (int j = 1; j < this->grid.jmax + 1; j++) {
-            this->preconditioner.p(i,j) = output_ptr[(i-1)*this->grid.jmax + (j-1)];
+            this->preconditioner.p(i,j) = output_ptr[(j-1)*this->grid.imax + (i-1)];
         }
     }
 }
@@ -26,9 +26,6 @@ void FluidSimulation::solveWithML() {
 
     // reset norm check
     this->res_norm = 0.0;
-
-    // reset norm check
-    this->res_norm = 0.0;
     this->n_cg = 0;
     this->alpha_cg = 0.0;
     this->alpha_top_cg = 0.0;
@@ -36,29 +33,34 @@ void FluidSimulation::solveWithML() {
     this->beta_cg = 0.0;
     this->beta_top_cg = 0.0;
 
-    // 1x Jacobi smoother with relaxation factor (omega)
-    for (int i = 1; i <= this->grid.imax; i++) {
-        for (int j = 1; j <= this->grid.jmax; j++) {
-            this->grid.po(i,j) = this->grid.p(i,j); // smart residual preparation
-            this->grid.p(i, j) = (
-                (1/(-2*this->grid.dx2 - 2*this->grid.dy2)) // 1/Aii
-                *
-                (
-                    this->grid.RHS(i,j)*this->grid.dx2dy2 - this->grid.dy2*(this->grid.p(i+1,j) + this->grid.p(i-1,j)) - this->grid.dx2*(this->grid.p(i,j+1) + this->grid.p(i,j-1))
-                )
+    for (int i = 1; i < this->grid.imax + 1; i++) {
+        for (int j = 1; j < this->grid.jmax + 1; j++) {
+            this->grid.res(i,j) = this->grid.RHS(i,j) - (
+                // Sparse matrix A
+                (1/this->grid.dx2)*(this->grid.p(i+1,j) - 2*this->grid.p(i,j) + this->grid.p(i-1,j)) +
+                (1/this->grid.dy2)*(this->grid.p(i,j+1) - 2*this->grid.p(i,j) + this->grid.p(i,j-1))
             );
-            this->grid.res(i, j) = this->grid.po(i, j) - this->grid.p(i, j);
             this->preconditioner.RHS(i,j) = this->grid.res(i,j);
         }
     }
 
-    this->inferenceExp1();
+    // set preconditioner p to 0
+    for (int i = 0; i < this->grid.imax + 2; i++) {
+        for (int j = 0; j < this->grid.jmax + 2; j++) {
+            this->preconditioner.p(i,j) = 0;
+        }
+    }
+
+    Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, 10);
+
     // Initial search vector
     this->grid.search_vector = this->preconditioner.p;
 
     while ((this->res_norm > this->eps || this->res_norm == 0) && this->n_cg < this->maxiterations_cg) {
         this->alpha_top_cg = 0.0;
         this->alpha_bottom_cg = 0.0;
+        this->beta_top_cg = 0.0;
+        this->res_norm = 0.0;
 
         // Calculate alpha
         // Laplacian operator of error_vector from multigrid, because of dot product of <A, Pi>, A-Matrix is the laplacian operator
@@ -74,8 +76,6 @@ void FluidSimulation::solveWithML() {
             }
         }
         this->alpha_cg = this->alpha_top_cg/this->alpha_bottom_cg;
-
-        this->res_norm = 0.0;
 
         // Update pressure and new residual
         for (int i = 1; i < this->grid.imax + 1; i++) {
@@ -109,6 +109,8 @@ void FluidSimulation::solveWithML() {
             }
         }
         this->beta_cg = this->beta_top_cg/this->alpha_top_cg;
+        
+        this->betas(this->it) = this->beta_cg;
 
         // Calculate new search vector
         for (int i = 1; i < this->grid.imax + 1; i++) {

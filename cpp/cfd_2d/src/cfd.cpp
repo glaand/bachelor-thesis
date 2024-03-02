@@ -339,10 +339,8 @@ namespace CFD {
         if (!std::filesystem::exists("ML_data")) {
             std::filesystem::create_directory("ML_data");
         }
-        std::string filename = "ML_data/RHS_" + std::to_string(this->current_file_number) + ".dat";
-        Kernel::saveMatrix(filename.c_str(), &this->grid.RHS);
-        std::string filename2 = "ML_data/p_" + std::to_string(this->current_file_number) + ".dat";
-        Kernel::saveMatrix(filename2.c_str(), &this->grid.p);
+        std::string filename = "ML_data/res_" + std::to_string(this->current_file_number) + ".dat";
+        Kernel::saveMatrix(filename.c_str(), &this->grid.res);
         this->current_file_number++;
     }
 
@@ -492,6 +490,7 @@ namespace CFD {
         this->res_norm_over_it_with_pressure_solver.conservativeResize(this->it);
         this->res_norm_over_it_without_pressure_solver.conservativeResize(this->it_wo_pressure_solver);
         this->res_norm_over_time.conservativeResize(this->duration);
+        this->betas.conservativeResize(this->it);
 
         return;
     }
@@ -503,5 +502,6 @@ namespace CFD {
         Kernel::saveVector("residuals_with_pressure_solver.dat", &this->res_norm_over_it_with_pressure_solver);
         Kernel::saveVector("residuals_without_pressure_solver.dat", &this->res_norm_over_it_without_pressure_solver);
         Kernel::saveVector("residuals_over_time.dat", &this->res_norm_over_time);
+        Kernel::saveVector("betas.dat", &this->betas);
     }
 }
