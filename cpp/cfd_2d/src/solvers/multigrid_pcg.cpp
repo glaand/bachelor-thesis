@@ -26,6 +26,8 @@ void FluidSimulation::solveWithMultigridPCG() {
         }
     }
 
+    int initial_res_norm = this->grid.res.norm();
+
     // set preconditioner p to 0
     for (int i = 0; i < this->grid.imax + 2; i++) {
         for (int j = 0; j < this->grid.jmax + 2; j++) {
@@ -33,17 +35,13 @@ void FluidSimulation::solveWithMultigridPCG() {
         }
     }
 
-    if (this->save_ml) {
-        this->saveMLData();
-    }
-
     // Initial guess for error vector
-    Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, 10);
+    Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, this->num_sweeps);
 
     // Initial search vector
     this->grid.search_vector = this->preconditioner.p;
 
-    while ((this->res_norm > this->eps || this->res_norm == 0)) {
+    while ((this->res_norm > this->eps || this->res_norm == 0) && this->n_cg < this->maxiterations_cg) {
         this->alpha_top_cg = 0.0;
         this->alpha_bottom_cg = 0.0;
         this->beta_top_cg= 0.0;
@@ -72,13 +70,11 @@ void FluidSimulation::solveWithMultigridPCG() {
                 this->grid.res(i,j) -= this->alpha_cg*this->grid.Asearch_vector(i,j);
                 this->preconditioner.p(i,j) = 0;
                 this->preconditioner.RHS(i,j) = this->grid.res(i,j);
-                this->res_norm += pow((this->grid.po(i,j) - this->grid.p(i,j)), 2);
             }
         }
 
-        // Multiply by dx and dy to get the integral
-        this->res_norm *= this->grid.dx * this->grid.dy;
-        this->res_norm = sqrt(this->res_norm);
+        // Calculate norm of residual
+        this->res_norm = this->grid.res.norm() / initial_res_norm;
 
         // Convergence check
         this->res_norm_over_it_with_pressure_solver(this->it) = this->res_norm;
@@ -88,7 +84,11 @@ void FluidSimulation::solveWithMultigridPCG() {
         }
         
         // New guess for error vector
-        Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, 10);
+        Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, this->num_sweeps);
+
+        if (this->save_ml) {
+            this->saveMLData();
+        }
 
         // Calculate beta
         for (int i = 1; i < this->grid.imax + 1; i++) {
@@ -106,7 +106,6 @@ void FluidSimulation::solveWithMultigridPCG() {
             }
         }
 
-        this->computeDiscreteL2Norm();
         this->res_norm_over_it_with_pressure_solver(this->it) = this->res_norm;
         this->it++;
         this->n_cg++;

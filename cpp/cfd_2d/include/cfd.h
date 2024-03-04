@@ -54,6 +54,7 @@ namespace CFD {
             float t = 0;
             float dt = 0.05;
             float save_interval = 0.5;
+            float num_sweeps = 1;
             bool save_ml = false;
             bool no_vtk = false;
             SolverType solver_type = SolverType::JACOBI;
@@ -78,6 +79,7 @@ namespace CFD {
                 dt = params.dt;
                 solver_type = params.solver_type;
                 save_interval = params.save_interval;
+                num_sweeps = params.num_sweeps;
                 res_norm = 0.0;
                 e_norm = 0.0;
                 multigrid_hierarchy = nullptr;
@@ -112,6 +114,7 @@ namespace CFD {
             Kernel::Timer timer;
             SolverType solver_type;
             float save_interval;
+            int num_sweeps;
             bool save_ml;
             bool no_vtk;
             VectorXd res_norm_over_it_with_pressure_solver;

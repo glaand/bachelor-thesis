@@ -44,80 +44,81 @@ class Kaneda(nn.Module):
 
         self.avgpool = nn.AvgPool2d(kernel_size=(2, 2))
 
-        self.relu = nn.ReLU()
+        self.selu = nn.SELU()
 
     def forward(self, x):
+        # normalize input with mean and std
+        mean = x.mean()
+        std = x.std()
+        x = (x - mean) / std
         x = self.conv1(x)
-        la = self.relu(self.conv2(x))
-        lb = self.relu(self.conv3(la))
-        la = self.relu(self.conv4(lb)) + la
-        lb = self.relu(self.conv5(la))
+        la = self.selu(self.conv2(x))
+        lb = self.selu(self.conv3(la))
+        la = self.selu(self.conv4(lb)) + la
+        lb = self.selu(self.conv5(la))
         
         if self.N < 130:
             apa = self.avgpool(lb)
-            apb = self.relu(self.conv6(apa))
-            apa = self.relu(self.conv7(apb)) + apa
-            apb = self.relu(self.conv8(apa))
-            apa = self.relu(self.conv9(apb)) + apa
-            apb = self.relu(self.conv10(apa))
-            apa = self.relu(self.conv11(apb)) + apa
+            apb = self.selu(self.conv6(apa))
+            apa = self.selu(self.conv7(apb)) + apa
+            apb = self.selu(self.conv8(apa))
+            apa = self.selu(self.conv9(apb)) + apa
+            apb = self.selu(self.conv10(apa))
+            apa = self.selu(self.conv11(apb)) + apa
         else:
             apa = self.avgpool(lb)
-            apb = self.relu(self.conv6(apa))
-            apa = self.relu(self.conv7(apb)) + apa
-            apb = self.relu(self.conv8(apa))
-            apa = self.relu(self.conv9(apb)) + apa
-            apb = self.relu(self.conv10(apa))
-            apa = self.relu(self.conv11(apb)) + apa
-            apb = self.relu(self.conv12(apa))
-            apa = self.relu(self.conv11(apb)) + apa
-            apb = self.relu(self.conv12(apa))
-            apa = self.relu(self.conv11(apb)) + apa
+            apb = self.selu(self.conv6(apa))
+            apa = self.selu(self.conv7(apb)) + apa
+            apb = self.selu(self.conv8(apa))
+            apa = self.selu(self.conv9(apb)) + apa
+            apb = self.selu(self.conv10(apa))
+            apa = self.selu(self.conv11(apb)) + apa
+            apb = self.selu(self.conv12(apa))
+            apa = self.selu(self.conv11(apb)) + apa
+            apb = self.selu(self.conv12(apa))
+            apa = self.selu(self.conv11(apb)) + apa
 
         upa = F.interpolate(apa, scale_factor=2, mode='nearest') + lb
-        upb = self.relu(self.conv5(upa))
-        upa = self.relu(self.conv4(upb)) + upa
-        upb = self.relu(self.conv3(upa))
-        upa = self.relu(self.conv2(upb)) + upa
-        upb = self.relu(self.conv1(self.reduce_channels(upa)))
-        upa = self.relu(self.conv2(upb)) + upa
+        upb = self.selu(self.conv5(upa))
+        upa = self.selu(self.conv4(upb)) + upa
+        upb = self.selu(self.conv3(upa))
+        upa = self.selu(self.conv2(upb)) + upa
+        upb = self.selu(self.conv1(self.reduce_channels(upa)))
+        upa = self.selu(self.conv2(upb)) + upa
 
         out = self.reduce_channels(upa)
+
         return out
 
-def custom_loss(predicted_error_vector, residual_data, A):
+def custom_loss(predicted_error_vector, error_data, A):
     # Initialize loss accumulator
     total_loss = 0.0
 
     # Reshape tensors if needed
-    residual_data = residual_data.view(residual_data.shape[0], -1)
+    error_data = error_data.view(error_data.shape[0], -1)
     predicted_error_vector = predicted_error_vector.view(predicted_error_vector.shape[0], -1)
 
-    # Loop through each vector in residual_data
-    for i in range(residual_data.shape[0]):
-        # Calculate alpha for each vector
-        alpha_top = torch.matmul(residual_data[i].T, predicted_error_vector[i])
-        alpha_bottom = torch.matmul(torch.matmul(predicted_error_vector[i].T, A), predicted_error_vector[i])
-        alpha = alpha_top / alpha_bottom
-
-        # Calculate loss for each vector
-        loss = torch.norm(residual_data[i] - alpha * torch.matmul(A, predicted_error_vector[i])) ** 2
+    # Loop through each vector in error_data
+    for i in range(error_data.shape[0]):
+        # Loss is the frobenium norm of the difference between the predicted and actual error vectors
+        loss = torch.norm(predicted_error_vector[i] - error_data[i], p='fro')**2
 
         # Accumulate loss
         total_loss += loss
 
-    return total_loss / residual_data.shape[0]
+    return total_loss / error_data.shape[0]
 
 def evaluate_regression(model, test_data, criterion):
     model.eval()
     with torch.no_grad():
         predicted_error_vector = model(test_data[0])
-        loss = criterion(predicted_error_vector, test_data[0], A)
+        loss = criterion(predicted_error_vector, test_data[1], A)
 
     return loss.item()
 
 # Load data
 residual_data = torch.tensor([])
+error_data = torch.tensor([])
 
 # list files for given path
 import os
@@ -128,30 +129,59 @@ for file in os.listdir("../experiments/2d/mgpcg/ML_data/"):
             _, number = file.split("_")
             number, _ = number.split(".")
             residual_files[int(number)] = os.path.join("../experiments/2d/mgpcg/ML_data/", file)
-
-# sort files
 residual_files = dict(sorted(residual_files.items()))
+
+error_files = {}
+for file in os.listdir("../experiments/2d/mgpcg/ML_data/"):
+    if file.endswith(".dat"):
+        if "e_" in file:
+            _, number = file.split("_")
+            number, _ = number.split(".")
+            error_files[int(number)] = os.path.join("../experiments/2d/mgpcg/ML_data/", file)
+error_files = dict(sorted(error_files.items()))
 
 # load data
 print("Loading residual data...")
 for key in list(residual_files.keys()):
     filepath = residual_files[key]
     loaded_residual_data = np.loadtxt(filepath)
-    # norm 2
-    normed_residual_data = loaded_residual_data / np.linalg.norm(loaded_residual_data)
-    residual_data = torch.cat((residual_data, torch.tensor(normed_residual_data).unsqueeze(0)), 0)
+    residual_data = torch.cat((residual_data, torch.tensor(loaded_residual_data).unsqueeze(0)), 0)
+
+print("Loading error data...")
+for key in list(error_files.keys()):
+    filepath = error_files[key]
+    loaded_error_data = np.loadtxt(filepath)
+    error_data = torch.cat((error_data, torch.tensor(loaded_error_data).unsqueeze(0)), 0)
 
 # Prepare data
-vector_size = 10
+vector_size = 34
 A = generate_laplacian_matrix(vector_size*vector_size)
-print(residual_data.shape)
 residual_data = residual_data.view(residual_data.shape[0], 1, vector_size, vector_size).float()
 residual_data = residual_data.to("cuda")
+error_data = error_data.view(error_data.shape[0], 1, vector_size, vector_size).float()
+error_data = error_data.to("cuda")
+
+# Split data into train and test sets
+total_samples = residual_data.shape[0]
+train_size = int(0.8 * total_samples)
+test_size = total_samples - train_size
+
+train_data, test_data = random_split(list(zip(residual_data, error_data)), [train_size, test_size])
+
+train_residual_data, train_error_data = zip(*train_data)
+test_residual_data, test_error_data = zip(*test_data)
+
+train_residual_data = torch.stack(train_residual_data).to("cuda")
+train_error_data = torch.stack(train_error_data).to("cuda")
+test_residual_data = torch.stack(test_residual_data).to("cuda")
+test_error_data = torch.stack(test_error_data).to("cuda")
+
+
 model = Kaneda(vector_size, 1, 16)
 model.to("cuda")
 
 # Define the optimizer
-optimizer = optim.Adam(model.parameters(), lr=0.000001)
+optimizer = optim.Adam(model.parameters(), lr=1e-6, weight_decay=1e-5, amsgrad=True)
 
 scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, factor=0.5, verbose=True)
 
@@ -159,13 +189,13 @@ scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience
 model.train()
 
 # Train the model
-num_epochs = 100
+num_epochs = 1000
 for epoch in tqdm(range(num_epochs)):
     # Forward pass
-    predicted_error_vector = model(residual_data)
+    predicted_error_vector = model(train_residual_data)
 
     # Calculate the loss
-    loss = custom_loss(predicted_error_vector, residual_data, A)
+    loss = custom_loss(predicted_error_vector, train_error_data, A)
 
     # Backward pass and optimization
     optimizer.zero_grad()
@@ -178,16 +208,16 @@ for epoch in tqdm(range(num_epochs)):
     print(f"Epoch {epoch+1}/{num_epochs}, Train Loss: {loss.item()}")
 
 # Evaluate the model on the test set
-test_loss = evaluate_regression(model, (residual_data, A), custom_loss)
+test_loss = evaluate_regression(model, (test_residual_data, test_error_data, A), custom_loss)
 print(f"Test Loss: {test_loss}")
 
 # Convert to Torchscript via Annotation
 model.eval()
-traced = torch.jit.trace(model, residual_data)
+traced = torch.jit.trace(model, test_residual_data[0].unsqueeze(0))
 traced.save("model.pt")
 
 # generate random tensor to test the model
-input_tensor = residual_data[0].unsqueeze(0)
+input_tensor = test_residual_data[0].unsqueeze(0)
 output = traced(input_tensor)
 # save output to e.dat
 output = output.cpu().detach().numpy()

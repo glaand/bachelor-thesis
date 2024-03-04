@@ -10,11 +10,18 @@ void FluidSimulation::inferenceExp1() {
     T = T.unsqueeze(0).unsqueeze(0);
     auto output = this->model.forward({ T }).toTensor();
     output = output.to(torch::kCPU).squeeze(0).squeeze(0);
-    float* output_ptr = output.data_ptr<float>();
 
-    for (int i = 1; i < this->grid.imax + 1; i++) {
-        for (int j = 1; j < this->grid.jmax + 1; j++) {
-            this->preconditioner.p(i,j) = output_ptr[(j-1)*this->grid.imax + (i-1)];
+    // set preconditioner p to 0
+    for (int i = 0; i < this->grid.imax + 2; i++) {
+        for (int j = 0; j < this->grid.jmax + 2; j++) {
+            this->preconditioner.p(i,j) = 0;
+        }
+    }
+
+    auto output_acc = output.accessor<float,2>();
+    for(int i = 1; i < this->grid.imax + 1; i++) {
+        for(int j = 1; j < this->grid.jmax + 1; j++) {
+            this->preconditioner.p(i,j) = output_acc[j][i];
         }
     }
 }
@@ -44,6 +51,8 @@ void FluidSimulation::solveWithML() {
         }
     }
 
+    int initial_res_norm = this->grid.res.norm();
+
     // set preconditioner p to 0
     for (int i = 0; i < this->grid.imax + 2; i++) {
         for (int j = 0; j < this->grid.jmax + 2; j++) {
@@ -51,7 +60,8 @@ void FluidSimulation::solveWithML() {
         }
     }
 
-    Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, 10);
+    // Initial guess for error vector
+    Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, this->num_sweeps);
 
     // Initial search vector
     this->grid.search_vector = this->preconditioner.p;
@@ -84,13 +94,11 @@ void FluidSimulation::solveWithML() {
                 this->grid.p(i,j) += this->alpha_cg*this->grid.search_vector(i,j);
                 this->grid.res(i,j) -= this->alpha_cg*this->grid.Asearch_vector(i,j);
                 this->preconditioner.RHS(i,j) = this->grid.res(i,j);
-                this->res_norm += pow((this->grid.po(i,j) - this->grid.p(i,j)), 2);
             }
         }
 
-        // Multiply by dx and dy to get the integral
-        this->res_norm *= this->grid.dx * this->grid.dy;
-        this->res_norm = sqrt(this->res_norm);
+        // Calculate norm of residual
+        this->res_norm = this->grid.res.norm() / initial_res_norm;
 
         // Convergence check
         this->res_norm_over_it_with_pressure_solver(this->it) = this->res_norm;
@@ -99,7 +107,6 @@ void FluidSimulation::solveWithML() {
             break;
         }
         
-        // New guess for error vector
         this->inferenceExp1();
 
         // Calculate beta
@@ -119,7 +126,6 @@ void FluidSimulation::solveWithML() {
             }
         }
 
-        this->computeDiscreteL2Norm();
         this->res_norm_over_it_with_pressure_solver(this->it) = this->res_norm;
         this->it++;
         this->n_cg++;
