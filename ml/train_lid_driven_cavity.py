@@ -27,64 +27,62 @@ class Kaneda(nn.Module):
     def __init__(self, N, dim, fil_num):
         super(Kaneda, self).__init__()
         self.N = N
-        self.conv1 = nn.Conv2d(1, fil_num, kernel_size=(2, 2), padding='same')
-        self.conv2 = nn.Conv2d(fil_num, fil_num, kernel_size=(2, 2), padding='same')
-        self.conv3 = nn.Conv2d(fil_num, fil_num, kernel_size=(2, 2), padding='same')
-        self.conv4 = nn.Conv2d(fil_num, fil_num, kernel_size=(2, 2), padding='same')
-        self.conv5 = nn.Conv2d(fil_num, fil_num, kernel_size=(2, 2), padding='same')
-        self.conv6 = nn.Conv2d(fil_num, fil_num, kernel_size=(2, 2), padding='same')
-        self.conv7 = nn.Conv2d(fil_num, fil_num, kernel_size=(2, 2), padding='same')
-        self.conv8 = nn.Conv2d(fil_num, fil_num, kernel_size=(2, 2), padding='same')
-        self.conv9 = nn.Conv2d(fil_num, fil_num, kernel_size=(2, 2), padding='same')
-        self.conv10 = nn.Conv2d(fil_num, fil_num, kernel_size=(2, 2), padding='same')
-        self.conv11 = nn.Conv2d(fil_num, fil_num, kernel_size=(2, 2), padding='same')
-        self.conv12 = nn.Conv2d(fil_num, fil_num, kernel_size=(2, 2), padding='same')
+        self.conv1 = nn.Conv2d(1, fil_num, kernel_size=(3, 3), padding=1)
+        self.conv2 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
+        self.conv3 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
+        self.conv4 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
+        self.conv5 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
+        self.conv6 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
+        self.conv7 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
+        self.conv8 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
+        self.conv9 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
+        self.conv10 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
+        self.conv11 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
+        self.conv12 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
 
-        self.reduce_channels = nn.Conv2d(fil_num, 1, kernel_size=1)  # Reduce channels to 1
+        self.reduce_channels = nn.Conv2d(fil_num, 1, kernel_size=(3, 3), padding=1)  # Reduce channels to 1
 
         self.avgpool = nn.AvgPool2d(kernel_size=(2, 2))
 
-        self.selu = nn.SELU()
+        self.act = nn.SiLU()
 
     def forward(self, x):
-        # normalize input with mean and std
-        mean = x.mean()
-        std = x.std()
-        x = (x - mean) / std
+        # normalise input
+        x = x / torch.max(x)
         x = self.conv1(x)
-        la = self.selu(self.conv2(x))
-        lb = self.selu(self.conv3(la))
-        la = self.selu(self.conv4(lb)) + la
-        lb = self.selu(self.conv5(la))
+        la = self.act(self.conv2(x))
+        lb = self.act(self.conv3(la))
+        la = self.act(self.conv4(lb)) + la
+        lb = self.act(self.conv5(la))
         
         if self.N < 130:
             apa = self.avgpool(lb)
-            apb = self.selu(self.conv6(apa))
-            apa = self.selu(self.conv7(apb)) + apa
-            apb = self.selu(self.conv8(apa))
-            apa = self.selu(self.conv9(apb)) + apa
-            apb = self.selu(self.conv10(apa))
-            apa = self.selu(self.conv11(apb)) + apa
+            apb = self.act(self.conv6(apa))
+            apa = self.act(self.conv7(apb)) + apa
+            apb = self.act(self.conv8(apa))
+            apa = self.act(self.conv9(apb)) + apa
+            apb = self.act(self.conv10(apa))
+            apa = self.act(self.conv11(apb)) + apa
         else:
             apa = self.avgpool(lb)
-            apb = self.selu(self.conv6(apa))
-            apa = self.selu(self.conv7(apb)) + apa
-            apb = self.selu(self.conv8(apa))
-            apa = self.selu(self.conv9(apb)) + apa
-            apb = self.selu(self.conv10(apa))
-            apa = self.selu(self.conv11(apb)) + apa
-            apb = self.selu(self.conv12(apa))
-            apa = self.selu(self.conv11(apb)) + apa
-            apb = self.selu(self.conv12(apa))
-            apa = self.selu(self.conv11(apb)) + apa
+            apb = self.act(self.conv6(apa))
+            apa = self.act(self.conv7(apb)) + apa
+            apb = self.act(self.conv8(apa))
+            apa = self.act(self.conv9(apb)) + apa
+            apb = self.act(self.conv10(apa))
+            apa = self.act(self.conv11(apb)) + apa
+            apb = self.act(self.conv12(apa))
+            apa = self.act(self.conv11(apb)) + apa
+            apb = self.act(self.conv12(apa))
+            apa = self.act(self.conv11(apb)) + apa
 
-        upa = F.interpolate(apa, scale_factor=2, mode='nearest') + lb
-        upb = self.selu(self.conv5(upa))
-        upa = self.selu(self.conv4(upb)) + upa
-        upb = self.selu(self.conv3(upa))
-        upa = self.selu(self.conv2(upb)) + upa
-        upb = self.selu(self.conv1(self.reduce_channels(upa)))
-        upa = self.selu(self.conv2(upb)) + upa
+        upa = F.interpolate(apa, scale_factor=2, mode='bicubic') + lb
+        upb = self.act(self.conv5(upa))
+        upa = self.act(self.conv4(upb)) + upa
+        upb = self.act(self.conv3(upa))
+        upa = self.act(self.conv2(upb)) + upa
+        upb = self.act(self.conv1(self.reduce_channels(upa)))
+        upa = self.act(self.conv2(upb)) + upa
 
         out = self.reduce_channels(upa)
 
@@ -100,8 +98,8 @@ def custom_loss(predicted_error_vector, error_data, A):
 
     # Loop through each vector in error_data
     for i in range(error_data.shape[0]):
-        # Loss is the frobenium norm of the difference between the predicted and actual error vectors
-        loss = torch.norm(predicted_error_vector[i] - error_data[i], p='fro')**2
+        # Loss mean squared error between predicted and true error without matrix A
+        loss = torch.mean(torch.abs(predicted_error_vector[i] - error_data[i]))
 
         # Accumulate loss
         total_loss += loss
@@ -166,7 +164,11 @@ total_samples = residual_data.shape[0]
 train_size = int(0.8 * total_samples)
 test_size = total_samples - train_size
 
-train_data, test_data = random_split(list(zip(residual_data, error_data)), [train_size, test_size])
+train_data, test_data = random_split(
+    list(zip(residual_data, error_data)), 
+    [train_size, test_size],
+    generator=torch.Generator().manual_seed(42)
+)
 
 train_residual_data, train_error_data = zip(*train_data)
 test_residual_data, test_error_data = zip(*test_data)
