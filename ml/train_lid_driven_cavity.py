@@ -107,8 +107,8 @@ def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
         alpha = alpha_top / alpha_bottom
 
         # mse between true_error and pred_error
-        #loss_deep_learning = F.mse_loss(pred_error[k], true_error[k])
-        loss_simulation = torch.norm((copy_residual - alpha * Asearch_vector).view(1, -1)) ** 2
+        loss_deep_learning = F.mse_loss(pred_error[k], true_error[k])
+        loss_simulation = torch.norm(loss_deep_learning*(copy_residual - alpha * Asearch_vector).view(1, -1)) ** 2
 
         total_loss += loss_simulation
 
