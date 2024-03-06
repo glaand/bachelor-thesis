@@ -11,18 +11,6 @@ from torch.utils.data import random_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from tqdm import tqdm
 
-# generate laplacian matrix
-def generate_laplacian_matrix(n):
-    L = np.zeros((n, n))
-    for i in range(n):
-        L[i, i] = 4
-        if i > 0:
-            L[i, i-1] = -1
-            L[i-1, i] = -1
-    # convert to tensor
-    L = torch.tensor(L).float().to("cuda")
-    return L
-
 class Kaneda(nn.Module):
     def __init__(self, N, dim, fil_num):
         super(Kaneda, self).__init__()
@@ -86,37 +74,51 @@ class Kaneda(nn.Module):
 
         out = self.reduce_channels(upa)
 
+        # set boundary to 0
+        out[:, :, 0, :] = 0
+        out[:, :, -1, :] = 0
+        out[:, :, :, 0] = 0
+        out[:, :, :, -1] = 0
+
         return out
 
-def custom_loss(predicted_error_vector, error_data, A):
-    # Initialize loss accumulator
+def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
     total_loss = 0.0
 
-    # Reshape tensors if needed
-    error_data = error_data.view(error_data.shape[0], -1)
-    predicted_error_vector = predicted_error_vector.view(predicted_error_vector.shape[0], -1)
+    dx2 = (1.0 / grid_size_x) ** 2
+    dy2 = (1.0 / grid_size_y) ** 2
 
-    # Loop through each vector in error_data
-    for i in range(error_data.shape[0]):
-        # Loss mean squared error between predicted and true error without matrix A
-        loss = torch.mean(torch.abs(predicted_error_vector[i] - error_data[i]))
+    for k in range(residual.shape[0]):
+        copy_residual = residual[k].view(grid_size_x, grid_size_y)
+        copy_pred_error = pred_error[k].view(grid_size_x, grid_size_y)
 
-        # Accumulate loss
-        total_loss += loss
 
-    return total_loss / error_data.shape[0]
+        Asearch_vector = torch.zeros((grid_size_x, grid_size_y), device=pred_error.device)
 
-def evaluate_regression(model, test_data, criterion):
-    model.eval()
-    with torch.no_grad():
-        predicted_error_vector = model(test_data[0])
-        loss = criterion(predicted_error_vector, test_data[1], A)
+        # Calculate Asearch_vector using tensor operations
+        Asearch_vector[1:-1, 1:-1] = (
+            (1/dx2) * (copy_pred_error[2:, 1:-1] - 2*copy_pred_error[1:-1, 1:-1] + copy_pred_error[:-2, 1:-1]) +
+            (1/dy2) * (copy_pred_error[1:-1, 2:] - 2*copy_pred_error[1:-1, 1:-1] + copy_pred_error[1:-1, :-2])
+        )
 
-    return loss.item()
+        alpha_top = (copy_pred_error * copy_residual).sum()
+        alpha_bottom = (copy_pred_error * Asearch_vector).sum()
+
+        alpha = alpha_top / alpha_bottom
+
+        # mse between true_error and pred_error
+        #loss_deep_learning = F.mse_loss(pred_error[k], true_error[k])
+        loss_simulation = torch.norm((copy_residual - alpha * Asearch_vector).view(1, -1)) ** 2
+
+        total_loss += loss_simulation
+
+    return total_loss / residual.shape[0]
 
 # Load data
 residual_data = torch.tensor([])
 error_data = torch.tensor([])
+
+torch.manual_seed(42)
 
 # list files for given path
 import os
@@ -152,11 +154,12 @@ for key in list(error_files.keys()):
     error_data = torch.cat((error_data, torch.tensor(loaded_error_data).unsqueeze(0)), 0)
 
 # Prepare data
-vector_size = 34
-A = generate_laplacian_matrix(vector_size*vector_size)
-residual_data = residual_data.view(residual_data.shape[0], 1, vector_size, vector_size).float()
+grid_size_x = 34
+grid_size_y = 34
+vector_size = np.min([grid_size_x, grid_size_y])
+residual_data = residual_data.view(residual_data.shape[0], 1, grid_size_x, grid_size_y).float()
 residual_data = residual_data.to("cuda")
-error_data = error_data.view(error_data.shape[0], 1, vector_size, vector_size).float()
+error_data = error_data.view(error_data.shape[0], 1, grid_size_x, grid_size_y).float()
 error_data = error_data.to("cuda")
 
 # Split data into train and test sets
@@ -183,7 +186,7 @@ model = Kaneda(vector_size, 1, 16)
 model.to("cuda")
 
 # Define the optimizer
-optimizer = optim.Adam(model.parameters(), lr=1e-6, weight_decay=1e-5, amsgrad=True)
+optimizer = optim.Adam(model.parameters(), lr=1e-2, weight_decay=1e-5, amsgrad=True)
 
 scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, factor=0.5, verbose=True)
 
@@ -197,11 +200,14 @@ for epoch in tqdm(range(num_epochs)):
     predicted_error_vector = model(train_residual_data)
 
     # Calculate the loss
-    loss = custom_loss(predicted_error_vector, train_error_data, A)
+    loss = custom_loss(predicted_error_vector, train_error_data, train_residual_data, grid_size_x, grid_size_y)
 
     # Backward pass and optimization
     optimizer.zero_grad()
     loss.backward()
+
+    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+
     optimizer.step()
 
     # Update the learning rate scheduler
@@ -210,8 +216,11 @@ for epoch in tqdm(range(num_epochs)):
     print(f"Epoch {epoch+1}/{num_epochs}, Train Loss: {loss.item()}")
 
 # Evaluate the model on the test set
-test_loss = evaluate_regression(model, (test_residual_data, test_error_data, A), custom_loss)
-print(f"Test Loss: {test_loss}")
+model.eval()
+with torch.no_grad():
+    predicted_error_vector = model(test_residual_data)
+    test_loss = custom_loss(predicted_error_vector, test_error_data, test_residual_data, grid_size_x, grid_size_y)
+    print(f"Test Loss: {test_loss}")
 
 # Convert to Torchscript via Annotation
 model.eval()

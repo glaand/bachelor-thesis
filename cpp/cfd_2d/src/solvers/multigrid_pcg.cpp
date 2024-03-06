@@ -38,6 +38,10 @@ void FluidSimulation::solveWithMultigridPCG() {
     // Initial guess for error vector
     Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, this->num_sweeps);
 
+    if (this->save_ml) {
+        this->saveMLData();
+    }
+
     // Initial search vector
     this->grid.search_vector = this->preconditioner.p;
 
@@ -84,11 +88,7 @@ void FluidSimulation::solveWithMultigridPCG() {
         }
         
         // New guess for error vector
-        Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, this->num_sweeps);
-
-        if (this->save_ml) {
-            this->saveMLData();
-        }
+        Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, 1);
 
         // Calculate beta
         for (int i = 1; i < this->grid.imax + 1; i++) {

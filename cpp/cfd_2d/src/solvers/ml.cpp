@@ -7,21 +7,15 @@ void FluidSimulation::inferenceExp1() {
     auto options = torch::TensorOptions().dtype(torch::kFloat);
     torch::Tensor T = torch::from_blob(this->grid.res.data(), {this->grid.res.rows(), this->grid.res.cols()}, options).clone();
     T = T.to(torch::kCUDA);
+    T = torch::transpose(T, 0, 1);
     T = T.unsqueeze(0).unsqueeze(0);
     auto output = this->model.forward({ T }).toTensor();
     output = output.to(torch::kCPU).squeeze(0).squeeze(0);
 
-    // set preconditioner p to 0
-    for (int i = 0; i < this->grid.imax + 2; i++) {
-        for (int j = 0; j < this->grid.jmax + 2; j++) {
-            this->preconditioner.p(i,j) = 0;
-        }
-    }
-
     auto output_acc = output.accessor<float,2>();
     for(int i = 1; i < this->grid.imax + 1; i++) {
         for(int j = 1; j < this->grid.jmax + 1; j++) {
-            this->preconditioner.p(i,j) = output_acc[j][i];
+            this->preconditioner.p(i,j) = output_acc[i][j];
         }
     }
 }
@@ -60,10 +54,9 @@ void FluidSimulation::solveWithML() {
         }
     }
 
-    // Initial guess for error vector
-    Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, this->num_sweeps);
+    // Get search direction from deep learning
+    this->inferenceExp1();
 
-    // Initial search vector
     this->grid.search_vector = this->preconditioner.p;
 
     while ((this->res_norm > this->eps || this->res_norm == 0) && this->n_cg < this->maxiterations_cg) {
@@ -107,7 +100,8 @@ void FluidSimulation::solveWithML() {
             break;
         }
         
-        this->inferenceExp1();
+        // New guess for error vector
+        Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, 1);
 
         // Calculate beta
         for (int i = 1; i < this->grid.imax + 1; i++) {
