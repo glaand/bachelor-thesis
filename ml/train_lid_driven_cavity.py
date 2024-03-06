@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import random_split
+from torch.utils.tensorboard import SummaryWriter
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from tqdm import tqdm
 
@@ -43,26 +44,17 @@ class Kaneda(nn.Module):
         la = self.act(self.conv4(lb)) + la
         lb = self.act(self.conv5(la))
         
-        if self.N < 130:
-            apa = self.avgpool(lb)
-            apb = self.act(self.conv6(apa))
-            apa = self.act(self.conv7(apb)) + apa
-            apb = self.act(self.conv8(apa))
-            apa = self.act(self.conv9(apb)) + apa
-            apb = self.act(self.conv10(apa))
-            apa = self.act(self.conv11(apb)) + apa
-        else:
-            apa = self.avgpool(lb)
-            apb = self.act(self.conv6(apa))
-            apa = self.act(self.conv7(apb)) + apa
-            apb = self.act(self.conv8(apa))
-            apa = self.act(self.conv9(apb)) + apa
-            apb = self.act(self.conv10(apa))
-            apa = self.act(self.conv11(apb)) + apa
-            apb = self.act(self.conv12(apa))
-            apa = self.act(self.conv11(apb)) + apa
-            apb = self.act(self.conv12(apa))
-            apa = self.act(self.conv11(apb)) + apa
+        apa = self.avgpool(lb)
+        apb = self.act(self.conv6(apa))
+        apa = self.act(self.conv7(apb)) + apa
+        apb = self.act(self.conv8(apa))
+        apa = self.act(self.conv9(apb)) + apa
+        apb = self.act(self.conv10(apa))
+        apa = self.act(self.conv11(apb)) + apa
+        apb = self.act(self.conv12(apa))
+        apa = self.act(self.conv11(apb)) + apa
+        apb = self.act(self.conv12(apa))
+        apa = self.act(self.conv11(apb)) + apa
 
         upa = F.interpolate(apa, scale_factor=2, mode='bicubic') + lb
         upb = self.act(self.conv5(upa))
@@ -83,155 +75,164 @@ class Kaneda(nn.Module):
         return out
 
 def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
-    total_loss = 0.0
-
     dx2 = (1.0 / grid_size_x) ** 2
     dy2 = (1.0 / grid_size_y) ** 2
 
-    for k in range(residual.shape[0]):
-        copy_residual = residual[k].view(grid_size_x, grid_size_y)
-        copy_pred_error = pred_error[k].view(grid_size_x, grid_size_y)
+    # Reshape for batch operations
+    pred_error = pred_error.view(-1, grid_size_x, grid_size_y)
+    true_error = true_error.view(-1, grid_size_x, grid_size_y)
+    residual = residual.view(-1, grid_size_x, grid_size_y)
+
+    Asearch_vector = torch.zeros_like(pred_error)
+    # Calculate Asearch_vector for the entire batch
+    Asearch_vector[:, 1:-1, 1:-1] = (
+        (1/dx2) * (pred_error[:, 2:, 1:-1] - 2*pred_error[:, 1:-1, 1:-1] + pred_error[:, :-2, 1:-1]) +
+        (1/dy2) * (pred_error[:, 1:-1, 2:] - 2*pred_error[:, 1:-1, 1:-1] + pred_error[:, 1:-1, :-2])
+    )
+
+    # Compute alpha for the entire batch
+    alpha_top = torch.sum(pred_error * residual, dim=[1,2])
+    alpha_bottom = torch.sum(pred_error * Asearch_vector, dim=[1,2])
+    alpha = alpha_top / alpha_bottom
+
+    # Compute losses
+    loss_deep_learning = F.mse_loss(pred_error, true_error, reduction='none')
+    loss_simulation = torch.norm(
+        loss_deep_learning * (residual - alpha.view(-1, 1, 1) * Asearch_vector),
+        dim=[1, 2]
+    ) / torch.norm(residual, dim=[1, 2])
+
+    total_loss = torch.mean(loss_simulation)
+
+    return total_loss
+
+if __name__ == "__main__":
+
+    # Load data
+    residual_data = torch.tensor([])
+    error_data = torch.tensor([])
+
+    torch.manual_seed(42)
+
+    # list files for given path
+    import os
+    residual_files = {}
+    for file in os.listdir("../experiments/2d/mgpcg/ML_data/"):
+        if file.endswith(".dat"):
+            if "res_" in file:
+                _, number = file.split("_")
+                number, _ = number.split(".")
+                residual_files[int(number)] = os.path.join("../experiments/2d/mgpcg/ML_data/", file)
+    residual_files = dict(sorted(residual_files.items()))
+
+    error_files = {}
+    for file in os.listdir("../experiments/2d/mgpcg/ML_data/"):
+        if file.endswith(".dat"):
+            if "e_" in file:
+                _, number = file.split("_")
+                number, _ = number.split(".")
+                error_files[int(number)] = os.path.join("../experiments/2d/mgpcg/ML_data/", file)
+    error_files = dict(sorted(error_files.items()))
+
+    # load data
+    print("Loading residual data...")
+    for key in list(residual_files.keys()):
+        filepath = residual_files[key]
+        loaded_residual_data = np.loadtxt(filepath)
+        residual_data = torch.cat((residual_data, torch.tensor(loaded_residual_data).unsqueeze(0)), 0)
+
+    print("Loading error data...")
+    for key in list(error_files.keys()):
+        filepath = error_files[key]
+        loaded_error_data = np.loadtxt(filepath)
+        error_data = torch.cat((error_data, torch.tensor(loaded_error_data).unsqueeze(0)), 0)
+
+    # Prepare data
+    grid_size_x = 34
+    grid_size_y = 34
+    vector_size = np.min([grid_size_x, grid_size_y])
+    residual_data = residual_data.view(residual_data.shape[0], 1, grid_size_x, grid_size_y).float()
+    residual_data = residual_data.to("cuda")
+    error_data = error_data.view(error_data.shape[0], 1, grid_size_x, grid_size_y).float()
+    error_data = error_data.to("cuda")
+
+    # Split data into train and test sets
+    total_samples = residual_data.shape[0]
+    train_size = int(0.8 * total_samples)
+    test_size = total_samples - train_size
+
+    train_data, test_data = random_split(
+        list(zip(residual_data, error_data)), 
+        [train_size, test_size],
+        generator=torch.Generator().manual_seed(42)
+    )
+
+    train_residual_data, train_error_data = zip(*train_data)
+    test_residual_data, test_error_data = zip(*test_data)
+
+    train_residual_data = torch.stack(train_residual_data).to("cuda")
+    train_error_data = torch.stack(train_error_data).to("cuda")
+    test_residual_data = torch.stack(test_residual_data).to("cuda")
+    test_error_data = torch.stack(test_error_data).to("cuda")
 
 
-        Asearch_vector = torch.zeros((grid_size_x, grid_size_y), device=pred_error.device)
+    model = Kaneda(vector_size, 1, 16)
+    model.to("cuda")
 
-        # Calculate Asearch_vector using tensor operations
-        Asearch_vector[1:-1, 1:-1] = (
-            (1/dx2) * (copy_pred_error[2:, 1:-1] - 2*copy_pred_error[1:-1, 1:-1] + copy_pred_error[:-2, 1:-1]) +
-            (1/dy2) * (copy_pred_error[1:-1, 2:] - 2*copy_pred_error[1:-1, 1:-1] + copy_pred_error[1:-1, :-2])
-        )
+    # Define the optimizer
+    optimizer = optim.Adam(model.parameters(), lr=1e-2, weight_decay=1e-5, amsgrad=True)
 
-        alpha_top = (copy_pred_error * copy_residual).sum()
-        alpha_bottom = (copy_pred_error * Asearch_vector).sum()
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, factor=0.5, verbose=True)
 
-        alpha = alpha_top / alpha_bottom
+    # Set the model in training mode
+    model.train()
 
-        # mse between true_error and pred_error
-        loss_deep_learning = F.mse_loss(pred_error[k], true_error[k])
-        loss_simulation = torch.norm(loss_deep_learning*(copy_residual - alpha * Asearch_vector).view(1, -1)) ** 2
+    writer = SummaryWriter('logs')
 
-        total_loss += loss_simulation
+    # Train the model
+    num_epochs = 1000
+    for epoch in tqdm(range(num_epochs)):
+        # Forward pass
+        predicted_error_vector = model(train_residual_data)
 
-    return total_loss / residual.shape[0]
+        # Calculate the loss
+        loss = custom_loss(predicted_error_vector, train_error_data, train_residual_data, grid_size_x, grid_size_y)
 
-# Load data
-residual_data = torch.tensor([])
-error_data = torch.tensor([])
+        # Backward pass and optimization
+        optimizer.zero_grad()
+        loss.backward()
 
-torch.manual_seed(42)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
-# list files for given path
-import os
-residual_files = {}
-for file in os.listdir("../experiments/2d/mgpcg/ML_data/"):
-    if file.endswith(".dat"):
-        if "res_" in file:
-            _, number = file.split("_")
-            number, _ = number.split(".")
-            residual_files[int(number)] = os.path.join("../experiments/2d/mgpcg/ML_data/", file)
-residual_files = dict(sorted(residual_files.items()))
+        optimizer.step()
 
-error_files = {}
-for file in os.listdir("../experiments/2d/mgpcg/ML_data/"):
-    if file.endswith(".dat"):
-        if "e_" in file:
-            _, number = file.split("_")
-            number, _ = number.split(".")
-            error_files[int(number)] = os.path.join("../experiments/2d/mgpcg/ML_data/", file)
-error_files = dict(sorted(error_files.items()))
+        writer.add_scalar('Loss/train', loss.item(), epoch)
+        writer.add_scalar('Learning Rate', optimizer.param_groups[0]['lr'], epoch)
 
-# load data
-print("Loading residual data...")
-for key in list(residual_files.keys()):
-    filepath = residual_files[key]
-    loaded_residual_data = np.loadtxt(filepath)
-    residual_data = torch.cat((residual_data, torch.tensor(loaded_residual_data).unsqueeze(0)), 0)
+        # Update the learning rate scheduler
+        scheduler.step(loss)
 
-print("Loading error data...")
-for key in list(error_files.keys()):
-    filepath = error_files[key]
-    loaded_error_data = np.loadtxt(filepath)
-    error_data = torch.cat((error_data, torch.tensor(loaded_error_data).unsqueeze(0)), 0)
+        print(f"Epoch {epoch+1}/{num_epochs}, Train Loss: {loss.item()}")
 
-# Prepare data
-grid_size_x = 34
-grid_size_y = 34
-vector_size = np.min([grid_size_x, grid_size_y])
-residual_data = residual_data.view(residual_data.shape[0], 1, grid_size_x, grid_size_y).float()
-residual_data = residual_data.to("cuda")
-error_data = error_data.view(error_data.shape[0], 1, grid_size_x, grid_size_y).float()
-error_data = error_data.to("cuda")
+    writer.close()
 
-# Split data into train and test sets
-total_samples = residual_data.shape[0]
-train_size = int(0.8 * total_samples)
-test_size = total_samples - train_size
+    # Evaluate the model on the test set
+    model.eval()
+    with torch.no_grad():
+        predicted_error_vector = model(test_residual_data)
+        test_loss = custom_loss(predicted_error_vector, test_error_data, test_residual_data, grid_size_x, grid_size_y)
+        print(f"Test Loss: {test_loss}")
 
-train_data, test_data = random_split(
-    list(zip(residual_data, error_data)), 
-    [train_size, test_size],
-    generator=torch.Generator().manual_seed(42)
-)
+    # Convert to Torchscript via Annotation
+    model.eval()
+    traced = torch.jit.trace(model, test_residual_data[0].unsqueeze(0))
+    traced.save("model.pt")
 
-train_residual_data, train_error_data = zip(*train_data)
-test_residual_data, test_error_data = zip(*test_data)
-
-train_residual_data = torch.stack(train_residual_data).to("cuda")
-train_error_data = torch.stack(train_error_data).to("cuda")
-test_residual_data = torch.stack(test_residual_data).to("cuda")
-test_error_data = torch.stack(test_error_data).to("cuda")
-
-
-model = Kaneda(vector_size, 1, 16)
-model.to("cuda")
-
-# Define the optimizer
-optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-5, amsgrad=True)
-
-scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, factor=0.5, verbose=True)
-
-# Set the model in training mode
-model.train()
-
-# Train the model
-num_epochs = 10000
-for epoch in tqdm(range(num_epochs)):
-    # Forward pass
-    predicted_error_vector = model(train_residual_data)
-
-    # Calculate the loss
-    loss = custom_loss(predicted_error_vector, train_error_data, train_residual_data, grid_size_x, grid_size_y)
-
-    # Backward pass and optimization
-    optimizer.zero_grad()
-    loss.backward()
-
-    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-
-    optimizer.step()
-
-    # Update the learning rate scheduler
-    scheduler.step(loss)
-
-    print(f"Epoch {epoch+1}/{num_epochs}, Train Loss: {loss.item()}")
-
-# Evaluate the model on the test set
-model.eval()
-with torch.no_grad():
-    predicted_error_vector = model(test_residual_data)
-    test_loss = custom_loss(predicted_error_vector, test_error_data, test_residual_data, grid_size_x, grid_size_y)
-    print(f"Test Loss: {test_loss}")
-
-# Convert to Torchscript via Annotation
-model.eval()
-traced = torch.jit.trace(model, test_residual_data[0].unsqueeze(0))
-traced.save("model.pt")
-
-# generate random tensor to test the model
-input_tensor = test_residual_data[0].unsqueeze(0)
-output = traced(input_tensor)
-# save output to e.dat
-output = output.cpu().detach().numpy()
-np.savetxt("e.dat", output.reshape(vector_size, vector_size))
-print(output)
-print(output.shape)
+    # generate random tensor to test the model
+    input_tensor = test_residual_data[0].unsqueeze(0)
+    output = traced(input_tensor)
+    # save output to e.dat
+    output = output.cpu().detach().numpy()
+    np.savetxt("e.dat", output.reshape(vector_size, vector_size))
+    print(output)
+    print(output.shape)
