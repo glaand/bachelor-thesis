@@ -186,7 +186,7 @@ model = Kaneda(vector_size, 1, 16)
 model.to("cuda")
 
 # Define the optimizer
-optimizer = optim.Adam(model.parameters(), lr=1e-2, weight_decay=1e-5, amsgrad=True)
+optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-5, amsgrad=True)
 
 scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, factor=0.5, verbose=True)
 
@@ -194,7 +194,7 @@ scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience
 model.train()
 
 # Train the model
-num_epochs = 1000
+num_epochs = 10000
 for epoch in tqdm(range(num_epochs)):
     # Forward pass
     predicted_error_vector = model(train_residual_data)
