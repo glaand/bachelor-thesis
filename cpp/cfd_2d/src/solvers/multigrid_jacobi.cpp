@@ -11,6 +11,8 @@ void FluidSimulation::solveWithMultigridJacobi() {
     this->setBoundaryConditionsPGeometry();
 
     while (this->res_norm > this->eps || this->res_norm == 0) {
+        this->setBoundaryConditionsP();
+        this->setBoundaryConditionsPGeometry();
 
         Multigrid::vcycle(this->multigrid_hierarchy, this->multigrid_hierarchy->numLevels() - 1, this->omg, 1);
 

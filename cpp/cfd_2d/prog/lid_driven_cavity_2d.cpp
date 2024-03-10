@@ -9,24 +9,16 @@ void FluidWithoutObstacles2D::setBoundaryConditionsU() {
     for (int j = 0; j < this->grid.jmax + 3; j++) {
         // Left wall
         this->grid.u(0, j) = 0.0;
-        this->grid.F(0, j) = this->grid.u(0, j);
         // Right wall
         this->grid.u(this->grid.imax, j) = 0.0;
-        this->grid.F(this->grid.imax, j) = this->grid.u(this->grid.imax, j);
     }
 
     // Interpolate with inner wall
     for (int i = 0; i < this->grid.imax + 2; i++) {
         // Bottom wall
         this->grid.u(i, 0) = -this->grid.u(i, 1);
-        this->grid.F(i, 0) = this->grid.u(i, 0);
-    }
-
-    // Moving wall u_i,jmax+1 = 2.0 - ui,jmax
-    for (int i = 0; i < this->grid.imax + 2; i++) {
         // Top wall
         this->grid.u(i,this->grid.jmax+1) = 2.0 - this->grid.u(i,this->grid.jmax);
-        this->grid.F(i,this->grid.jmax+1) = this->grid.u(i,this->grid.jmax+1);
     }
 }
 
@@ -35,20 +27,16 @@ void FluidWithoutObstacles2D::setBoundaryConditionsV() {
     for (int j = 0; j < this->grid.jmax + 2; j++) {
         // Left wall
         this->grid.v(0, j) = -this->grid.v(1, j);
-        this->grid.G(0, j) = this->grid.v(0, j);
         // Right wall
         this->grid.v(this->grid.imax + 1, j) = -this->grid.v(this->grid.imax, j);
-        this->grid.G(this->grid.imax + 1, j) = this->grid.v(this->grid.imax, j);
     }
     
     // Interpolate with inner wall
     for (int i = 0; i < this->grid.imax + 3; i++) {
         // Bottom wall
         this->grid.v(i, 0) = 0.0;
-        this->grid.G(i, 0) = this->grid.v(i, 0);
         // Top wall
         this->grid.v(i, this->grid.jmax) = 0.0;
-        this->grid.G(i, this->grid.jmax) = this->grid.v(i, this->grid.jmax);
     }
 }
 

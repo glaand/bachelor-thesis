@@ -2,7 +2,7 @@
 
 using namespace CFD;
 
-void FluidSimulation::solveWithMultigridPCG() {
+void FluidSimulation::solveWithMultigridPCGFaster() {
     this->resetPressure();
     this->setBoundaryConditionsP();
     this->setBoundaryConditionsPGeometry();
@@ -14,6 +14,7 @@ void FluidSimulation::solveWithMultigridPCG() {
     this->alpha_top_cg = 0.0;
     this->alpha_bottom_cg = 0.0;
     this->beta_cg = 0.0;
+    this->beta_top_cg = 0.0;
 
     for (int i = 1; i < this->grid.imax + 1; i++) {
         for (int j = 1; j < this->grid.jmax + 1; j++) {
@@ -46,9 +47,11 @@ void FluidSimulation::solveWithMultigridPCG() {
     this->grid.search_vector = this->preconditioner.p;
 
     while ((this->res_norm > this->eps || this->res_norm == 0) && this->n_cg < this->maxiterations_cg) {
+        this->setBoundaryConditionsP();
+        this->setBoundaryConditionsPGeometry();
         this->alpha_top_cg = 0.0;
         this->alpha_bottom_cg = 0.0;
-        this->beta_top_cg= 0.0;
+        //this->beta_top_cg= 0.0;
         this->res_norm = 0.0;
 
         // Calculate alpha
@@ -78,7 +81,7 @@ void FluidSimulation::solveWithMultigridPCG() {
         }
 
         // Calculate norm of residual
-        this->res_norm = this->grid.res.norm() / initial_res_norm;
+        this->computeDiscreteL2Norm();
 
         // Convergence check
         this->res_norm_over_it_with_pressure_solver(this->it) = this->res_norm;
@@ -88,7 +91,7 @@ void FluidSimulation::solveWithMultigridPCG() {
         }
         
         // New guess for error vector
-        Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, 1);
+        Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, this->num_sweeps);
 
         // Calculate beta
         for (int i = 1; i < this->grid.imax + 1; i++) {

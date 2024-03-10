@@ -9,11 +9,14 @@ SolverType CFD::convertSolverType(const std::string& solver) {
     else if (solver == "multigrid_jacobi") {
         return SolverType::MULTIGRID_JACOBI;
     }
-    else if (solver == "conjugated_gradient") {
-        return SolverType::CONJUGATED_GRADIENT;
+    else if (solver == "conjugate_gradient") {
+        return SolverType::CONJUGATE_GRADIENT;
     }
-    else if (solver == "multigrid_pcg") {
-        return SolverType::MULTIGRID_PCG;
+    else if (solver == "mgpcg") {
+        return SolverType::MGPCG;
+    }
+    else if (solver == "mgpcg_faster") {
+        return SolverType::MGPCG_FASTER;
     }
     else if (solver == "ml") {
         return SolverType::ML;

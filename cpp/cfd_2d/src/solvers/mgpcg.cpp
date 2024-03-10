@@ -2,25 +2,7 @@
 
 using namespace CFD;
 
-void FluidSimulation::inferenceExp1() {
-    // Initial guess for error vector with deep learning
-    auto options = torch::TensorOptions().dtype(torch::kFloat);
-    torch::Tensor T = torch::from_blob(this->grid.res.data(), {this->grid.res.rows(), this->grid.res.cols()}, options).clone();
-    T = T.to(torch::kCUDA);
-    T = torch::transpose(T, 0, 1);
-    T = T.unsqueeze(0).unsqueeze(0);
-    auto output = this->model.forward({ T }).toTensor();
-    output = output.to(torch::kCPU).squeeze(0).squeeze(0);
-
-    auto output_acc = output.accessor<float,2>();
-    for(int i = 1; i < this->grid.imax + 1; i++) {
-        for(int j = 1; j < this->grid.jmax + 1; j++) {
-            this->preconditioner.p(i,j) = output_acc[i][j];
-        }
-    }
-}
-
-void FluidSimulation::solveWithML() {
+void FluidSimulation::solveWithMultigridPCG() {
     this->resetPressure();
     this->setBoundaryConditionsP();
     this->setBoundaryConditionsPGeometry();
@@ -54,18 +36,22 @@ void FluidSimulation::solveWithML() {
         }
     }
 
-    this->inferenceExp1(); // Get search direction from deep learning and New guess for error vector (Inspiration, Azulay et al)
+    // Initial guess for error vector
     Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, this->num_sweeps);
 
+    if (this->save_ml) {
+        this->saveMLData();
+    }
+
+    // Initial search vector
     this->grid.search_vector = this->preconditioner.p;
 
-
-    while ((this->res_norm > this->eps || this->res_norm == 0) && this->n_cg < this->maxiterations_cg) {
+    while ((this->res_norm > this->eps || this->res_norm == 0)) {
         this->setBoundaryConditionsP();
         this->setBoundaryConditionsPGeometry();
         this->alpha_top_cg = 0.0;
         this->alpha_bottom_cg = 0.0;
-        this->beta_top_cg = 0.0;
+        this->beta_top_cg= 0.0;
         this->res_norm = 0.0;
 
         // Calculate alpha
@@ -95,7 +81,7 @@ void FluidSimulation::solveWithML() {
         }
 
         // Calculate norm of residual
-        this->res_norm = this->grid.res.norm() / initial_res_norm;
+        this->computeDiscreteL2Norm();
 
         // Convergence check
         this->res_norm_over_it_with_pressure_solver(this->it) = this->res_norm;
@@ -114,7 +100,6 @@ void FluidSimulation::solveWithML() {
             }
         }
         this->beta_cg = this->beta_top_cg/this->alpha_top_cg;
-        
         this->betas(this->it) = this->beta_cg;
 
         // Calculate new search vector
@@ -128,8 +113,6 @@ void FluidSimulation::solveWithML() {
         this->it++;
         this->n_cg++;
     }
-
     this->setBoundaryConditionsP();
     this->setBoundaryConditionsPGeometry();
-
 }

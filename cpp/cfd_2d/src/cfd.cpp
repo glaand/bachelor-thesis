@@ -130,10 +130,20 @@ namespace CFD {
         return max;
     }
     void StaggeredGrid::interpolateVelocity() {
-        for (int i = 0; i < imax + 2; i++) {
-            for (int j = 0; j < jmax + 2; j++) {
+        for (int i = 1; i < imax + 1; i++) { // Start from 1 to exclude boundary cells
+            for (int j = 1; j < jmax + 1; j++) { // Start from 1 to exclude boundary cells
+                // Interpolate u velocity component at half-integer grid points
                 u_interpolated(i, j) = (u(i, j) + u(i, j+1)) / 2;
+                // Interpolate v velocity component at half-integer grid points
                 v_interpolated(i, j) = (v(i, j) + v(i+1, j)) / 2;
+
+                // Fine interpolation along x direction
+                double delta_x = 0.5 * (u(i, j) + u(i, j+1) - u(i+1, j) - u(i+1, j+1));
+                u_interpolated(i + 1, j) = u(i, j+1) + delta_x;
+                
+                // Fine interpolation along y direction
+                double delta_y = 0.5 * (v(i, j) + v(i+1, j) - v(i, j+1) - v(i+1, j+1));
+                v_interpolated(i, j + 1) = v(i+1, j) + delta_y;
             }
         }
     }
@@ -163,6 +173,19 @@ namespace CFD {
                 );
             }
         }
+        // Copy boundary conditions from u to F
+        for (int j = 0; j < this->grid.jmax + 3; j++) {
+            // Inflow at left boundary (Left wall)
+            this->grid.F(0, j) = this->grid.u(0, j);
+            // Outflow at right boundary (Right wall)
+            this->grid.F(this->grid.imax + 1, j) = this->grid.u(this->grid.imax + 1, j);
+        }
+        for (int i = 0; i < this->grid.imax + 2; i++) {
+            // Bottom wall
+            this->grid.F(i, 0) = this->grid.u(i, 0);
+            // Top wall
+            this->grid.F(i, this->grid.jmax + 2) = this->grid.u(i, this->grid.jmax + 1);
+        }
     }
 
     void FluidSimulation::computeG() {
@@ -176,6 +199,19 @@ namespace CFD {
                     ME_Y::vv_y(&this->grid, this, i, j)
                 );
             }
+        }
+        // Copy boundary conditions from v to G
+        for (int j = 0; j < this->grid.jmax + 2; j++) {
+            // Inflow at left boundary (Left wall)
+            this->grid.G(0, j) = this->grid.v(0, j);
+            // Outflow at right boundary (Right wall)
+            this->grid.G(this->grid.imax + 1, j) = this->grid.v(this->grid.imax + 1, j);
+        }
+        for (int i = 0; i < this->grid.imax + 3; i++) {
+            // Bottom wall
+            this->grid.G(i, 0) = this->grid.v(i, 0);
+            // Top wall
+            this->grid.G(i, this->grid.jmax + 1) = this->grid.v(i, this->grid.jmax + 1);
         }
     }
 
@@ -214,19 +250,6 @@ namespace CFD {
             }
         }
     }
-
-    void FluidSimulation::setBoundaryConditionsInterpolatedVelocityGeometry() {
-        // Geometry boundaries
-        for (int i = 1; i < this->grid.imax + 1; i++) {
-            for (int j = 1; j < this->grid.jmax + 1; j++) {
-                if (isObstacleCell(i, j)) {
-                    this->grid.u_interpolated(i,j) = 0.0;
-                    this->grid.v_interpolated(i,j) = 0.0;
-                }
-            }
-        }
-    }
-
 
     void FluidSimulation::setBoundaryConditionsPGeometry() {
         // Geometry boundaries
@@ -291,8 +314,6 @@ namespace CFD {
         this->grid.v(i, j) = 0.0;
         this->grid.u(i-1, j) = -this->grid.u(i-1, j + (i == this->grid.imax ? -1 : 1));
         this->grid.v(i, j-1) = -this->grid.v(i + (j == this->grid.jmax ? -1 : 1), j-1);
-        this->grid.G(i, j) = this->grid.v(i, j);
-        this->grid.F(i, j) = this->grid.u(i, j);
     }
 
     void FluidSimulation::handleObstacleCell(int i, int j) {
@@ -300,22 +321,18 @@ namespace CFD {
             this->grid.u(i, j) = -this->grid.u(i, j + 1);
             this->grid.u(i-1, j) = -this->grid.u(i-1, j + 1);
             this->grid.v(i, j) = 0.0;
-            this->grid.G(i, j) = this->grid.v(i, j);
         } else if (this->grid.flag_field(i, j) & FlagFieldMask::FLUID_SOUTH) {
             this->grid.u(i, j) = -this->grid.u(i, j - 1);
             this->grid.u(i-1, j) = -this->grid.u(i-1, j - 1);
             this->grid.v(i, j) = 0.0;
-            this->grid.G(i, j) = this->grid.v(i, j);
         } else if (this->grid.flag_field(i, j) & FlagFieldMask::FLUID_WEST) {
             this->grid.v(i, j-1) = -this->grid.v(i-1, j-1);
             this->grid.v(i, j) = -this->grid.v(i-1, j);
             this->grid.u(i-1, j) = 0.0;
-            this->grid.F(i-1, j) = this->grid.u(i-1, j);
         } else if (this->grid.flag_field(i, j) & FlagFieldMask::FLUID_EAST) {
             this->grid.v(i, j-1) = -this->grid.v(i + 1, j - 1);
             this->grid.v(i, j) = -this->grid.v(i + 1, j);
             this->grid.u(i + 1, j) = 0.0;
-            this->grid.F(i + 1, j) = this->grid.u(i + 1, j);
         } else {
             // interior obstacle cell, so no-slip
             this->grid.u(i,j) = 0.0;
@@ -366,11 +383,6 @@ namespace CFD {
             pressure_solver = &FluidSimulation::solveWithMultigridJacobi;
             solver_name = "Multigrid Jacobi";
 
-            // check if imax and jmax are powers of 2, if not throw exception
-            if ((this->grid.imax & (this->grid.imax - 1)) != 0 || (this->grid.jmax & (this->grid.jmax - 1)) != 0) {
-                throw std::invalid_argument("imax and jmax must be powers of 2");
-            }
-
             int imax_levels = std::log2(this->grid.imax);
             int jmax_levels = std::log2(this->grid.jmax);
             int levels = std::min(imax_levels, jmax_levels);
@@ -379,30 +391,20 @@ namespace CFD {
 
             std::cout << "Solver: Multigrid Jacobi (" << this->grid.imax << "x" << this->grid.jmax << ")" << std::endl;
         }
-        else if (this->solver_type == SolverType::CONJUGATED_GRADIENT) {
-            pressure_solver = &FluidSimulation::solveWithConjugatedGradient;
-            solver_name = "Conjugated Gradient";
-
-            // check if imax and jmax are powers of 2, if not throw exception
-            if ((this->grid.imax & (this->grid.imax - 1)) != 0 || (this->grid.jmax & (this->grid.jmax - 1)) != 0) {
-                throw std::invalid_argument("imax and jmax must be powers of 2");
-            }
+        else if (this->solver_type == SolverType::CONJUGATE_GRADIENT) {
+            pressure_solver = &FluidSimulation::solveWithConjugateGradient;
+            solver_name = "Conjugate Gradient";
 
             int imax_levels = std::log2(this->grid.imax);
             int jmax_levels = std::log2(this->grid.jmax);
             int levels = std::min(imax_levels, jmax_levels);
 
             this->multigrid_hierarchy = new MultigridHierarchy(levels, &this->grid);
-            std::cout << "Solver: Conjugated Gradient (" << this->grid.imax << "x" << this->grid.jmax << ")" << std::endl;
+            std::cout << "Solver: Conjugate Gradient (" << this->grid.imax << "x" << this->grid.jmax << ")" << std::endl;
         }
-        else if (this->solver_type == SolverType::MULTIGRID_PCG) {
+        else if (this->solver_type == SolverType::MGPCG) {
             pressure_solver = &FluidSimulation::solveWithMultigridPCG;
             solver_name = "Multigrid PCG";
-
-            // check if imax and jmax are powers of 2, if not throw exception
-            if ((this->grid.imax & (this->grid.imax - 1)) != 0 || (this->grid.jmax & (this->grid.jmax - 1)) != 0) {
-                throw std::invalid_argument("imax and jmax must be powers of 2");
-            }
 
             int imax_levels = std::log2(this->grid.imax);
             int jmax_levels = std::log2(this->grid.jmax);
@@ -415,15 +417,25 @@ namespace CFD {
 
             std::cout << "Solver: Multigrid PCG (" << this->grid.imax << "x" << this->grid.jmax << ")" << std::endl;
         }
+        else if (this->solver_type == SolverType::MGPCG_FASTER) {
+            pressure_solver = &FluidSimulation::solveWithMultigridPCGFaster;
+            solver_name = "Multigrid PCG (Faster)";
+
+            int imax_levels = std::log2(this->grid.imax);
+            int jmax_levels = std::log2(this->grid.jmax);
+            int levels = std::min(imax_levels, jmax_levels);
+
+            this->preconditioner = StaggeredGrid(this->grid.imax, this->grid.jmax, this->grid.xlength, this->grid.ylength);
+
+            this->multigrid_hierarchy = new MultigridHierarchy(levels, &this->grid);
+            this->multigrid_hierarchy_preconditioner = new MultigridHierarchy(levels, &this->preconditioner);
+
+            std::cout << "Solver: Multigrid PCG Faster (" << this->grid.imax << "x" << this->grid.jmax << ")" << std::endl;
+        }
         else if (this->solver_type == SolverType::ML) {
             pressure_solver = &FluidSimulation::solveWithML;
             loadTorchScriptModel("model.pt");
             solver_name = "ML";
-
-            // check if imax and jmax are powers of 2, if not throw exception
-            if ((this->grid.imax & (this->grid.imax - 1)) != 0 || (this->grid.jmax & (this->grid.jmax - 1)) != 0) {
-                throw std::invalid_argument("imax and jmax must be powers of 2");
-            }
 
             int imax_levels = std::log2(this->grid.imax);
             int jmax_levels = std::log2(this->grid.jmax);
@@ -449,9 +461,6 @@ namespace CFD {
             this->setBoundaryConditionsVelocityGeometry();
             this->computeF();
             this->computeG();
-            this->setBoundaryConditionsU();
-            this->setBoundaryConditionsV();
-            this->setBoundaryConditionsVelocityGeometry();
             this->computeRHS();
             
             (this->*pressure_solver)();
@@ -460,14 +469,9 @@ namespace CFD {
 
             this->computeU();
             this->computeV();
-            this->setBoundaryConditionsU();
-            this->setBoundaryConditionsV();
-            this->setBoundaryConditionsVelocityGeometry();
-            this->setBoundaryConditionsPGeometry();
             std::cout << "Solver: " << solver_name << "\t" << " t: " << this->t << "\t" << " dt: " << this->dt << "\t" << " res: " << this->res_norm << "\t" << " p-norm: " << this->p_norm << "\t" << " it: " << this->it << "\t" << " it_wo_pressure_solver: " << this->it_wo_pressure_solver << "\t" << " n_cg: " << this->n_cg << "\t" << " duration: " << this->duration << std::endl;
             if (this->t - last_saved >= this->save_interval) {
                 this->grid.interpolateVelocity();
-                this->setBoundaryConditionsInterpolatedVelocityGeometry();
                 if (!this->no_vtk) {
                     saveVTK(this);
                 }
@@ -485,7 +489,6 @@ namespace CFD {
 
         this->grid.interpolateVelocity();
 
-        this->setBoundaryConditionsInterpolatedVelocityGeometry();
         this->setBoundaryConditionsP();
         this->setBoundaryConditionsPGeometry();
 

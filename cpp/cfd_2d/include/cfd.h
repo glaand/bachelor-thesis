@@ -32,8 +32,9 @@ namespace CFD {
     enum SolverType {
         JACOBI,
         MULTIGRID_JACOBI,
-        CONJUGATED_GRADIENT,
-        MULTIGRID_PCG,
+        CONJUGATE_GRADIENT,
+        MGPCG,
+        MGPCG_FASTER,
         ML
     };
     SolverType convertSolverType(const std::string& solver);
@@ -46,7 +47,7 @@ namespace CFD {
             float xlength = 1.0;
             float ylength = 1.0;
             float t_end = 5.0;
-            float tau = 0.5;
+            float tau = 0.1;
             float eps = 1e-3;
             float omg = 1.0;
             float alpha = 0.9;
@@ -134,7 +135,7 @@ namespace CFD {
             // Multigrid components
             MultigridHierarchy *multigrid_hierarchy;
 
-            // Preconditioner Conjugated Gradient components
+            // Preconditioner Conjugate Gradient components
             MultigridHierarchy *multigrid_hierarchy_preconditioner;
             StaggeredGrid preconditioner;
 
@@ -148,8 +149,9 @@ namespace CFD {
             void computeRHS();
             void solveWithJacobi();
             void solveWithMultigridJacobi();
-            void solveWithConjugatedGradient();
+            void solveWithConjugateGradient();
             void solveWithMultigridPCG();
+            void solveWithMultigridPCGFaster();
             void solveWithML();
             void computeDiscreteL2Norm();
             void computeU();
@@ -175,7 +177,6 @@ namespace CFD {
             virtual void setBoundaryConditionsP() = 0;
             virtual void setBoundaryConditionsPGeometry();
             virtual void setBoundaryConditionsVelocityGeometry();
-            virtual void setBoundaryConditionsInterpolatedVelocityGeometry();
 
             virtual ~FluidSimulation() = default;
     };

@@ -13,7 +13,6 @@ namespace CFD {
             void setBoundaryConditionsV() override;
             void setBoundaryConditionsP() override;
             void setBoundaryConditionsVelocityGeometry() override {};
-            void setBoundaryConditionsInterpolatedVelocityGeometry() override {};
             void setBoundaryConditionsPGeometry() override {};
     };
 

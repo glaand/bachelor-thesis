@@ -11,7 +11,8 @@ set(CFD_2D_SOURCES
     src/solvers/jacobi.cpp
     src/solvers/multigrid_jacobi.cpp
     src/solvers/conjugate_gradient.cpp
-    src/solvers/multigrid_pcg.cpp
+    src/solvers/mgpcg.cpp
+    src/solvers/mgpcg_faster.cpp
     src/solvers/ml.cpp
 )
 

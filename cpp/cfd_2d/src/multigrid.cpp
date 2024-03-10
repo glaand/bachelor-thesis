@@ -9,7 +9,7 @@ void Multigrid::vcycle(MultigridHierarchy *hierarchy, int currentLevel, float om
 
     if (currentLevel == 0) {
         // Relax on the coarset grid
-        relax(hierarchy->grids[0].get(), 1000, omg);
+        relax(hierarchy->grids[0].get(), numSweeps, omg);
     } else {
         // Relax on the current grid
         relax(hierarchy->grids[currentLevel].get(), numSweeps, omg);
@@ -18,7 +18,7 @@ void Multigrid::vcycle(MultigridHierarchy *hierarchy, int currentLevel, float om
         restrict_operator(hierarchy->grids[currentLevel].get(), hierarchy->grids[currentLevel-1].get());
 
         // Recursively call vcycle
-        vcycle(hierarchy, currentLevel-1, omg, numSweeps);
+        vcycle(hierarchy, currentLevel-1, omg, numSweeps*2);
 
         // Prolongate the error to the finer grid
         prolongate_operator(hierarchy->grids[currentLevel-1].get(), hierarchy->grids[currentLevel].get());
