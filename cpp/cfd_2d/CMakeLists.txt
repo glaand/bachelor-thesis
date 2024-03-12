@@ -2,6 +2,7 @@ project(cfd_2d)
 
 find_package(Eigen3 REQUIRED COMPONENTS CXX)
 find_package(Torch REQUIRED COMPONENTS CXX)
+find_package(OpenMP REQUIRED COMPONENTS CXX)
 
 set(CFD_2D_SOURCES
     src/cfd_params.cpp
@@ -38,6 +39,7 @@ target_link_libraries(
     VTK::FiltersCore
     VTK::vtksys
     torch
+    OpenMP::OpenMP_CXX
 )
 
 # Compile CFD Programs 

@@ -10,7 +10,7 @@ set(CMAKE_BUILD_TYPE Debug)
 set(
   CMAKE_CXX_FLAGS
   "${CMAKE_CXX_FLAGS} -O3 -Wall -Wextra -Wno-register -Wno-comment -fPIC \
-  -march=native -Wfatal-errors -fvisibility=hidden -fno-builtin"
+  -march=native -Wfatal-errors -fvisibility=hidden -fno-builtin -fno-math-errno -fno-trapping-math -fopenmp"
 )
 set(CMAKE_CTEST_ARGUMENTS "--output-on-failure")
 set(CMAKE_CXX11_ABI 0)

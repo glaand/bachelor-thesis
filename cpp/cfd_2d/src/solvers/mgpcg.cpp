@@ -7,6 +7,9 @@ void FluidSimulation::solveWithMultigridPCG() {
     this->setBoundaryConditionsP();
     this->setBoundaryConditionsPGeometry();
 
+    // Set initial guess for pressure
+    Multigrid::vcycle(this->multigrid_hierarchy, this->multigrid_hierarchy->numLevels() - 1, this->omg, this->num_sweeps);
+
     // reset norm check
     this->res_norm = 0.0;
     this->n_cg = 0;
@@ -18,11 +21,6 @@ void FluidSimulation::solveWithMultigridPCG() {
 
     for (int i = 1; i < this->grid.imax + 1; i++) {
         for (int j = 1; j < this->grid.jmax + 1; j++) {
-            this->grid.res(i,j) = this->grid.RHS(i,j) - (
-                // Sparse matrix A
-                (1/this->grid.dx2)*(this->grid.p(i+1,j) - 2*this->grid.p(i,j) + this->grid.p(i-1,j)) +
-                (1/this->grid.dy2)*(this->grid.p(i,j+1) - 2*this->grid.p(i,j) + this->grid.p(i,j-1))
-            );
             this->preconditioner.RHS(i,j) = this->grid.res(i,j);
         }
     }
@@ -113,6 +111,10 @@ void FluidSimulation::solveWithMultigridPCG() {
         this->it++;
         this->n_cg++;
     }
+
+    // Post-smoothing
+    Multigrid::vcycle(this->multigrid_hierarchy, this->multigrid_hierarchy->numLevels() - 1, this->omg, this->num_sweeps);
+
     this->setBoundaryConditionsP();
     this->setBoundaryConditionsPGeometry();
 }

@@ -1,12 +1,9 @@
 #!/bin/bash
 
-declare -A solvers=( ["jacobi"]="jacobi/"
-                    ["conjugated_gradient"]="conjugated_gradient/"
-                    ["multigrid_jacobi"]="multigrid_jacobi/"
-                    ["multigrid_pcg"]="multigrid_pcg/" )
+declare -A solvers=( ["mgpcg"]="mgpcg/" ["ml"]="ml/" )
 
-declare -a resolutions=("128")
-declare -a REs=("100")
+declare -a resolutions=("16" "32" "64")
+declare -a REs=("100" "400" "1000")
 
 run_solver() {
   local solver_name="$1"
@@ -24,8 +21,11 @@ run_solver() {
     # Capture the start time before running the program
     start_time=$(date +%s.%N)
 
+    # Set the path to the ML model
+    ml_model_path="/privat/studium/fhgr/bachelor-thesis/benchmarks/model.pt"
+
     # Run the solver and capture memory usage
-    lid_driven_cavity_2d --imax "$resolution" --jmax "$resolution" --solver "$solver_name" --eps 1e-8 --Re "$RE" --t_end 5 --no_vtk &
+    lid_driven_cavity_2d --imax "$resolution" --jmax "$resolution" --solver "$solver_name" --eps 1e-6 --Re "$RE" --t_end 50 --no_vtk --num_sweeps 5 --ml_model_path "$ml_model_path" &
 
     # Capture the process ID of the background job
     pid=$!
@@ -60,6 +60,7 @@ for resolution in "${resolutions[@]}"; do
       echo "Running ${solvers[$solver_name]} for $resolution x $resolution with Re=$RE"
       run_solver "$solver_name" "$resolution" "$RE" &
     done
+    wait
   done
   wait
 done

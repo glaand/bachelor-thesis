@@ -11,6 +11,8 @@ from torch.utils.data import random_split
 from torch.utils.tensorboard import SummaryWriter
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from tqdm import tqdm
+import glob
+import os
 
 class Kaneda(nn.Module):
     def __init__(self, N, dim, fil_num):
@@ -96,9 +98,9 @@ def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
     alpha = alpha_top / alpha_bottom
 
     # Compute losses
-    loss_deep_learning = F.mse_loss(pred_error, true_error, reduction='none')
+    # loss_deep_learning = F.mse_loss(pred_error, true_error, reduction='none')
     loss_simulation = torch.norm(
-        loss_deep_learning * (residual - alpha.view(-1, 1, 1) * Asearch_vector),
+        (residual - alpha.view(-1, 1, 1) * Asearch_vector),
         dim=[1, 2]
     ) / torch.norm(residual, dim=[1, 2])
 
@@ -108,44 +110,24 @@ def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
 
 if __name__ == "__main__":
 
+    # Define data loading function
+    def load_data(folder_path, prefix, skip=1):
+        print(f"Skipping every {skip} files")
+        data = []
+        files = glob.glob(os.path.join(folder_path, f"{prefix}_*.dat"))
+        files.sort(key=lambda x: int(os.path.basename(x).split('_')[1].split('.')[0]))
+        for i, file in enumerate(tqdm(files)):
+            if i % skip == 0:
+                loaded_data = np.loadtxt(file)
+                data.append(torch.tensor(loaded_data))
+        return torch.stack(data)
+
     # Load data
-    residual_data = torch.tensor([])
-    error_data = torch.tensor([])
+    residual_data = load_data("../experiments/2d/mgpcg/ML_data/", "res", 10)
+    error_data = load_data("../experiments/2d/mgpcg/ML_data/", "e", 10)
 
-    torch.manual_seed(42)
-
-    # list files for given path
-    import os
-    residual_files = {}
-    for file in os.listdir("../experiments/2d/mgpcg/ML_data/"):
-        if file.endswith(".dat"):
-            if "res_" in file:
-                _, number = file.split("_")
-                number, _ = number.split(".")
-                residual_files[int(number)] = os.path.join("../experiments/2d/mgpcg/ML_data/", file)
-    residual_files = dict(sorted(residual_files.items()))
-
-    error_files = {}
-    for file in os.listdir("../experiments/2d/mgpcg/ML_data/"):
-        if file.endswith(".dat"):
-            if "e_" in file:
-                _, number = file.split("_")
-                number, _ = number.split(".")
-                error_files[int(number)] = os.path.join("../experiments/2d/mgpcg/ML_data/", file)
-    error_files = dict(sorted(error_files.items()))
-
-    # load data
-    print("Loading residual data...")
-    for key in list(residual_files.keys()):
-        filepath = residual_files[key]
-        loaded_residual_data = np.loadtxt(filepath)
-        residual_data = torch.cat((residual_data, torch.tensor(loaded_residual_data).unsqueeze(0)), 0)
-
-    print("Loading error data...")
-    for key in list(error_files.keys()):
-        filepath = error_files[key]
-        loaded_error_data = np.loadtxt(filepath)
-        error_data = torch.cat((error_data, torch.tensor(loaded_error_data).unsqueeze(0)), 0)
+    print("Residual data shape:", residual_data.shape)
+    print("Error data shape:", error_data.shape)
 
     # Prepare data
     grid_size_x = 34
