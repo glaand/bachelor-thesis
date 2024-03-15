@@ -84,29 +84,24 @@ def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
     # Reshape for batch operations
     pred_error = pred_error.view(-1, grid_size_x, grid_size_y)
     true_error = true_error.view(-1, grid_size_x, grid_size_y)
-    residual = residual.view(-1, grid_size_x, grid_size_y)
 
-    Asearch_vector = torch.zeros_like(pred_error)
+    Asearch_vector_pred = torch.zeros_like(pred_error)
     # Calculate Asearch_vector for the entire batch
-    Asearch_vector[:, 1:-1, 1:-1] = (
+    Asearch_vector_pred[:, 1:-1, 1:-1] = (
         (1/dx2) * (pred_error[:, 2:, 1:-1] - 2*pred_error[:, 1:-1, 1:-1] + pred_error[:, :-2, 1:-1]) +
         (1/dy2) * (pred_error[:, 1:-1, 2:] - 2*pred_error[:, 1:-1, 1:-1] + pred_error[:, 1:-1, :-2])
     )
 
-    # Compute alpha for the entire batch
-    #alpha_top = torch.sum(pred_error * residual, dim=[1,2])
-    #alpha_bottom = torch.sum(pred_error * Asearch_vector, dim=[1,2])
-    #alpha = alpha_top / alpha_bottom
-
-    # Compute losses
-    loss_deep_learning = torch.sqrt(torch.mean((pred_error - true_error) ** 2))
-    loss_simulation = torch.norm(
-        #(residual - alpha.view(-1, 1, 1) * Asearch_vector),
-        (residual - Asearch_vector),
-        dim=[1, 2]
+    Asearch_vector_true = torch.zeros_like(true_error)
+    # Calculate Asearch_vector for the entire batch
+    Asearch_vector_true[:, 1:-1, 1:-1] = (
+        (1/dx2) * (true_error[:, 2:, 1:-1] - 2*true_error[:, 1:-1, 1:-1] + true_error[:, :-2, 1:-1]) +
+        (1/dy2) * (true_error[:, 1:-1, 2:] - 2*true_error[:, 1:-1, 1:-1] + true_error[:, 1:-1, :-2])
     )
 
-    total_loss = torch.sqrt(torch.mean(loss_simulation ** 2)) + loss_deep_learning
+    # Compute losses
+    loss_simulation = F.mse_loss(pred_error, true_error, reduction='none')
+    total_loss = torch.mean(loss_simulation)
 
     return total_loss
 
@@ -174,7 +169,7 @@ if __name__ == "__main__":
     writer = SummaryWriter('logs')
 
     # Train the model
-    num_epochs = 1000
+    num_epochs = 10000
     for epoch in tqdm(range(num_epochs)):
         # Forward pass
         predicted_error_vector = model(train_residual_data)

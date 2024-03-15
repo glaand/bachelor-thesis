@@ -44,7 +44,7 @@ void FluidSimulation::solveWithMultigridPCG() {
     // Initial search vector
     this->grid.search_vector = this->preconditioner.p;
 
-    while ((this->res_norm > this->eps || this->res_norm == 0)) {
+    while ((this->res_norm > this->eps || this->res_norm == 0) && this->n_cg < this->maxiterations_cg) {
         this->setBoundaryConditionsP();
         this->setBoundaryConditionsPGeometry();
         this->alpha_top_cg = 0.0;
@@ -79,7 +79,7 @@ void FluidSimulation::solveWithMultigridPCG() {
         }
 
         // Calculate norm of residual
-        this->computeDiscreteL2Norm();
+        this->res_norm = this->grid.res.norm();
 
         // Convergence check
         this->res_norm_over_it_with_pressure_solver(this->it) = this->res_norm;

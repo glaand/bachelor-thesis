@@ -93,7 +93,7 @@ void FluidSimulation::solveWithML() {
         }
 
         // Calculate norm of residual
-        this->computeDiscreteL2Norm();
+        this->res_norm = this->grid.res.norm();
 
         // Convergence check
         this->res_norm_over_it_with_pressure_solver(this->it) = this->res_norm;
@@ -112,7 +112,6 @@ void FluidSimulation::solveWithML() {
             }
         }
         this->beta_cg = this->beta_top_cg/this->alpha_top_cg;
-        
         this->betas(this->it) = this->beta_cg;
 
         // Calculate new search vector
