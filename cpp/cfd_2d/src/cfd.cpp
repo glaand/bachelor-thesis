@@ -466,6 +466,7 @@ namespace CFD {
         this->res_norm_over_it_without_pressure_solver.conservativeResize(this->it_wo_pressure_solver);
         this->res_norm_over_time.conservativeResize(this->duration);
         this->betas.conservativeResize(this->it);
+        this->n_cg_over_it.conservativeResize(this->it_wo_pressure_solver);
 
         return;
     }
@@ -478,5 +479,6 @@ namespace CFD {
         Kernel::saveVector("residuals_without_pressure_solver.dat", &this->res_norm_over_it_without_pressure_solver);
         Kernel::saveVector("residuals_over_time.dat", &this->res_norm_over_time);
         Kernel::saveVector("betas.dat", &this->betas);
+        Kernel::saveVector("n_cg_over_it.dat", &this->n_cg_over_it);
     }
 }

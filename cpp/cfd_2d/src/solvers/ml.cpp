@@ -15,7 +15,7 @@ void FluidSimulation::inferenceExp1() {
     auto output_acc = output.accessor<float,2>();
     for(int i = 1; i < this->grid.imax + 1; i++) {
         for(int j = 1; j < this->grid.jmax + 1; j++) {
-            this->preconditioner.p(i,j) = output_acc[i][j];
+            this->preconditioner.p(i,j) = output_acc[j][i];
         }
     }
 
@@ -98,7 +98,6 @@ void FluidSimulation::solveWithML() {
         }
         
         // New guess for error vector
-        this->inferenceExp1();
         Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, this->num_sweeps);
 
         // Calculate beta
@@ -121,6 +120,8 @@ void FluidSimulation::solveWithML() {
         this->it++;
         this->n_cg++;
     }
+
+    this->n_cg_over_it(this->it_wo_pressure_solver) = this->n_cg;
 
     // Post-smoothing
     Multigrid::vcycle(this->multigrid_hierarchy, this->multigrid_hierarchy->numLevels() - 1, this->omg, this->num_sweeps);

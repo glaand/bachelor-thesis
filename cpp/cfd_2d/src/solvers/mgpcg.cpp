@@ -112,6 +112,8 @@ void FluidSimulation::solveWithMultigridPCG() {
         this->n_cg++;
     }
 
+    this->n_cg_over_it(this->it_wo_pressure_solver) = this->n_cg;
+
     // Post-smoothing
     Multigrid::vcycle(this->multigrid_hierarchy, this->multigrid_hierarchy->numLevels() - 1, this->omg, this->num_sweeps);
 
