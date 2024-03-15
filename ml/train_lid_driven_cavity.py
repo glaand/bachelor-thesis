@@ -78,20 +78,20 @@ class Kaneda(nn.Module):
         return out
 
 def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
-    dx2 = (1.0 / grid_size_x) ** 2
-    dy2 = (1.0 / grid_size_y) ** 2
+    #dx2 = (1.0 / grid_size_x) ** 2
+    #dy2 = (1.0 / grid_size_y) ** 2
 
     # Reshape for batch operations
-    pred_error = pred_error.view(-1, grid_size_x, grid_size_y)
-    true_error = true_error.view(-1, grid_size_x, grid_size_y)
-    residual = residual.view(-1, grid_size_x, grid_size_y)
+    #pred_error = pred_error.view(-1, grid_size_x, grid_size_y)
+    #true_error = true_error.view(-1, grid_size_x, grid_size_y)
+    #residual = residual.view(-1, grid_size_x, grid_size_y)
 
-    Asearch_vector = torch.zeros_like(pred_error)
+    #Asearch_vector = torch.zeros_like(pred_error)
     # Calculate Asearch_vector for the entire batch
-    Asearch_vector[:, 1:-1, 1:-1] = (
-        (1/dx2) * (pred_error[:, 2:, 1:-1] - 2*pred_error[:, 1:-1, 1:-1] + pred_error[:, :-2, 1:-1]) +
-        (1/dy2) * (pred_error[:, 1:-1, 2:] - 2*pred_error[:, 1:-1, 1:-1] + pred_error[:, 1:-1, :-2])
-    )
+    #Asearch_vector[:, 1:-1, 1:-1] = (
+    #    (1/dx2) * (pred_error[:, 2:, 1:-1] - 2*pred_error[:, 1:-1, 1:-1] + pred_error[:, :-2, 1:-1]) +
+    #    (1/dy2) * (pred_error[:, 1:-1, 2:] - 2*pred_error[:, 1:-1, 1:-1] + pred_error[:, 1:-1, :-2])
+    #)
 
     # Compute alpha for the entire batch
     #alpha_top = torch.sum(pred_error * residual, dim=[1,2])
@@ -99,14 +99,14 @@ def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
     #alpha = alpha_top / alpha_bottom
 
     # Compute losses
-    loss_deep_learning = torch.sqrt(torch.mean((pred_error - true_error) ** 2))
-    loss_simulation = torch.norm(
+    loss_deep_learning = torch.sqrt(torch.mean((pred_error - true_error) ** 2, dim=[2, 3]))
+    #loss_simulation = torch.norm(
         #(residual - alpha.view(-1, 1, 1) * Asearch_vector),
-        (residual - Asearch_vector),
-        dim=[1, 2]
-    )
+    #    (residual - Asearch_vector),
+    #    dim=[1, 2]
+    #)
 
-    total_loss = torch.sqrt(torch.mean(loss_simulation ** 2)) + loss_deep_learning
+    total_loss = torch.mean(loss_deep_learning)
 
     return total_loss
 
@@ -125,8 +125,8 @@ if __name__ == "__main__":
         return torch.stack(data)
 
     # Load data
-    residual_data = load_data("ML_data/", "res", 10)
-    error_data = load_data("ML_data/", "e", 10)
+    residual_data = load_data("ML_data/", "res", 1)
+    error_data = load_data("ML_data/", "e", 1)
 
     print("Residual data shape:", residual_data.shape)
     print("Error data shape:", error_data.shape)
@@ -159,12 +159,16 @@ if __name__ == "__main__":
     test_residual_data = torch.stack(test_residual_data).to("cuda")
     test_error_data = torch.stack(test_error_data).to("cuda")
 
+    train_dataset = torch.utils.data.TensorDataset(train_residual_data, train_error_data)
+    test_dataset = torch.utils.data.TensorDataset(test_residual_data, test_error_data)
+    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)
+    test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=32, shuffle=True)
 
     model = Kaneda(vector_size, 1, 16)
     model.to("cuda")
 
     # Define the optimizer
-    optimizer = optim.Adam(model.parameters(), lr=1e-2, weight_decay=1e-5, amsgrad=True)
+    optimizer = optim.Adam(model.parameters(), lr=1e-2, amsgrad=True)
 
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, factor=0.5, verbose=True)
 
@@ -174,24 +178,30 @@ if __name__ == "__main__":
     writer = SummaryWriter('logs')
 
     # Train the model
-    num_epochs = 1000
+    num_epochs = 10000
     for epoch in tqdm(range(num_epochs)):
-        # Forward pass
-        predicted_error_vector = model(train_residual_data)
+        # Train on training data
+        for batch_idx, (batch_residual_data, batch_error_data) in enumerate(train_dataloader):
+            # Move data to GPU
+            batch_residual_data = batch_residual_data.to("cuda")
+            batch_error_data = batch_error_data.to("cuda")
+            
+            # Forward pass
+            predicted_error_vector = model(batch_residual_data)
 
-        # Calculate the loss
-        loss = custom_loss(predicted_error_vector, train_error_data, train_residual_data, grid_size_x, grid_size_y)
+            # Calculate the loss
+            loss = custom_loss(predicted_error_vector, batch_error_data, batch_residual_data, grid_size_x, grid_size_y)
 
-        # Backward pass and optimization
-        optimizer.zero_grad()
-        loss.backward()
+            # Backward pass and optimization
+            optimizer.zero_grad()
+            loss.backward()
 
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
-        optimizer.step()
+            optimizer.step()
 
-        writer.add_scalar('Loss/train', loss.item(), epoch)
-        writer.add_scalar('Learning Rate', optimizer.param_groups[0]['lr'], epoch)
+            writer.add_scalar('Loss/train', loss.item(), epoch*len(train_dataloader) + batch_idx)
+            writer.add_scalar('Learning Rate', optimizer.param_groups[0]['lr'], epoch*len(train_dataloader) + batch_idx)
 
         # Update the learning rate scheduler
         scheduler.step(loss)
