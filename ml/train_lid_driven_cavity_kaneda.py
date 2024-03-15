@@ -69,7 +69,6 @@ class Kaneda(nn.Module):
         out = self.reduce_channels(upa)
 
         # set boundary to 0
-        ## Warum habe ich die Werte auf 0 gesetzt?
         out[:, :, 0, :] = 0
         out[:, :, -1, :] = 0
         out[:, :, :, 0] = 0
@@ -78,31 +77,9 @@ class Kaneda(nn.Module):
         return out
 
 def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
-    dx2 = (1.0 / grid_size_x) ** 2
-    dy2 = (1.0 / grid_size_y) ** 2
-
-    # Reshape for batch operations
-    pred_error = pred_error.view(-1, grid_size_x, grid_size_y)
-    true_error = true_error.view(-1, grid_size_x, grid_size_y)
-
-    Asearch_vector_pred = torch.zeros_like(pred_error)
-    # Calculate Asearch_vector for the entire batch
-    Asearch_vector_pred[:, 1:-1, 1:-1] = (
-        (1/dx2) * (pred_error[:, 2:, 1:-1] - 2*pred_error[:, 1:-1, 1:-1] + pred_error[:, :-2, 1:-1]) +
-        (1/dy2) * (pred_error[:, 1:-1, 2:] - 2*pred_error[:, 1:-1, 1:-1] + pred_error[:, 1:-1, :-2])
-    )
-
-    Asearch_vector_true = torch.zeros_like(true_error)
-    # Calculate Asearch_vector for the entire batch
-    Asearch_vector_true[:, 1:-1, 1:-1] = (
-        (1/dx2) * (true_error[:, 2:, 1:-1] - 2*true_error[:, 1:-1, 1:-1] + true_error[:, :-2, 1:-1]) +
-        (1/dy2) * (true_error[:, 1:-1, 2:] - 2*true_error[:, 1:-1, 1:-1] + true_error[:, 1:-1, :-2])
-    )
-
     # Compute losses
-    loss_simulation = F.mse_loss(pred_error, true_error, reduction='none')
-    total_loss = torch.mean(loss_simulation)
-
+    loss_deep_learning = torch.sqrt(torch.mean((pred_error - true_error) ** 2, dim=[2, 3]))
+    total_loss = torch.mean(loss_deep_learning)
     return total_loss
 
 if __name__ == "__main__":
@@ -169,7 +146,7 @@ if __name__ == "__main__":
     writer = SummaryWriter('logs')
 
     # Train the model
-    num_epochs = 10000
+    num_epochs = 1000
     for epoch in tqdm(range(num_epochs)):
         # Forward pass
         predicted_error_vector = model(train_residual_data)

@@ -18,6 +18,10 @@ void FluidSimulation::inferenceExp1() {
             this->preconditioner.p(i,j) = output_acc[i][j];
         }
     }
+
+    // normalize preconditioner p
+    float safety_factor = 1e-6; // putting very small because multigrid is sensitive to high error
+    this->preconditioner.p = safety_factor*this->preconditioner.p/this->preconditioner.p.norm();
 }
 
 void FluidSimulation::solveWithML() {
@@ -43,17 +47,8 @@ void FluidSimulation::solveWithML() {
         }
     }
 
-    int initial_res_norm = this->grid.res.norm();
-
-    // set preconditioner p to 0
-    for (int i = 0; i < this->grid.imax + 2; i++) {
-        for (int j = 0; j < this->grid.jmax + 2; j++) {
-            this->preconditioner.p(i,j) = 0;
-        }
-    }
-
     this->inferenceExp1(); // Get search direction from deep learning and New guess for error vector (Inspiration, Azulay et al)
-    Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, this->num_sweeps);
+    //Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, this->num_sweeps);
 
     this->grid.search_vector = this->preconditioner.p;
 
@@ -103,6 +98,7 @@ void FluidSimulation::solveWithML() {
         }
         
         // New guess for error vector
+        this->inferenceExp1();
         Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, this->num_sweeps);
 
         // Calculate beta
