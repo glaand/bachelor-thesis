@@ -197,22 +197,17 @@ namespace CFD {
         }
     }
 
-    void FluidSimulation::computeDiscreteL2Norm() {
-        // Extract grid dimensions
-        int imax = this->grid.imax;
-        int jmax = this->grid.jmax;
+    void FluidSimulation::computeResidual() {
+        for (int j = 1; j < this->grid.jmax + 1; j++) {
+            for (int i = 1; i < this->grid.imax + 1; i++) {
+                this->grid.res(i,j) = this->grid.po(i,j) - this->grid.p(i,j);
+            }
+        }
+        this->computeResidualNorm();
+    }
 
-        // Compute the difference between po and p
-        Eigen::MatrixXf diff = this->grid.po.block(1, 1, imax, jmax) - this->grid.p.block(1, 1, imax, jmax);
-
-        // Element-wise square of differences
-        Eigen::MatrixXf squared_diff = diff.array().square();
-
-        // Sum of squared differences
-        float sum_squared_diff = squared_diff.sum();
-
-        // Multiply by dx and dy to get the integral
-        this->res_norm = std::sqrt(sum_squared_diff * this->grid.dx * this->grid.dy);
+    void FluidSimulation::computeResidualNorm() {
+        this->res_norm = this->grid.res.squaredNorm();
     }
 
     void FluidSimulation::computeU() {
@@ -399,15 +394,30 @@ namespace CFD {
             solver_name = "Conjugate Gradient";
             std::cout << "Solver: Conjugate Gradient (" << this->grid.imax << "x" << this->grid.jmax << ")" << std::endl;
         }
+        else if (this->solver_type == SolverType::JPCG) {
+            pressure_solver = &FluidSimulation::solveWithJacobiPCG;
+            solver_name = "Jacobi PCG";
+            std::cout << "Solver: Jacobi PCG (" << this->grid.imax << "x" << this->grid.jmax << ")" << std::endl;
+        }
+        else if (this->solver_type == SolverType::APCG) {
+            pressure_solver = &FluidSimulation::solveWithAInversePCG;
+            solver_name = "AInverse PCG";
+            std::cout << "Solver: AInverse PCG (" << this->grid.imax << "x" << this->grid.jmax << ")" << std::endl;
+        }
         else if (this->solver_type == SolverType::MGPCG) {
             pressure_solver = &FluidSimulation::solveWithMultigridPCG;
             solver_name = "Multigrid PCG";
             std::cout << "Solver: Multigrid PCG (" << this->grid.imax << "x" << this->grid.jmax << ")" << std::endl;
         }
-        else if (this->solver_type == SolverType::MGPCG_FASTER) {
-            pressure_solver = &FluidSimulation::solveWithMultigridPCGFaster;
-            solver_name = "Multigrid PCG (Faster)";
-            std::cout << "Solver: Multigrid PCG Faster (" << this->grid.imax << "x" << this->grid.jmax << ")" << std::endl;
+        else if (this->solver_type == SolverType::MGPSD) {
+            pressure_solver = &FluidSimulation::solveWithMultigridPSD;
+            solver_name = "Multigrid PSD";
+            std::cout << "Solver: Multigrid PSD (" << this->grid.imax << "x" << this->grid.jmax << ")" << std::endl;
+        }
+        else if (this->solver_type == SolverType::STEEPEST_DESCENT) {
+            pressure_solver = &FluidSimulation::solveWithSteepestDescent;
+            solver_name = "Steepest Descent";
+            std::cout << "Solver: Steepest Descent (" << this->grid.imax << "x" << this->grid.jmax << ")" << std::endl;
         }
         else if (this->solver_type == SolverType::ML) {
             pressure_solver = &FluidSimulation::solveWithML;

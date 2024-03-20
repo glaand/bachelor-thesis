@@ -12,11 +12,20 @@ SolverType CFD::convertSolverType(const std::string& solver) {
     else if (solver == "conjugate_gradient") {
         return SolverType::CONJUGATE_GRADIENT;
     }
+    else if (solver == "jpcg") {
+        return SolverType::JPCG;
+    }
+    else if (solver == "apcg") {
+        return SolverType::APCG;
+    }
     else if (solver == "mgpcg") {
         return SolverType::MGPCG;
     }
-    else if (solver == "mgpcg_faster") {
-        return SolverType::MGPCG_FASTER;
+    else if (solver == "mgpsd") {
+        return SolverType::MGPSD;
+    }
+    else if (solver == "sd") {
+        return SolverType::STEEPEST_DESCENT;
     }
     else if (solver == "ml") {
         return SolverType::ML;

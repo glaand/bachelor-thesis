@@ -11,9 +11,12 @@ set(CFD_2D_SOURCES
     src/multigrid.cpp
     src/solvers/jacobi.cpp
     src/solvers/multigrid_jacobi.cpp
-    src/solvers/conjugate_gradient.cpp
+    src/solvers/cg.cpp
+    src/solvers/apcg.cpp
+    src/solvers/jpcg.cpp
     src/solvers/mgpcg.cpp
-    src/solvers/mgpcg_faster.cpp
+    src/solvers/sd.cpp
+    src/solvers/mgpsd.cpp
     src/solvers/ml.cpp
 )
 

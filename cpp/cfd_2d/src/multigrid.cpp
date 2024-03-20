@@ -64,6 +64,16 @@ void Multigrid::prolongate_operator(const StaggeredGrid *coarse, StaggeredGrid *
             fine->p(2*i+1,2*j+1) += 0.25 * (coarse->p(i,j) + coarse->p(i+1,j) + coarse->p(i,j+1) + coarse->p(i+1,j+1));
         }
     }
+
+    // Set boundaries to zero
+    for (int i = 0; i < fine->imax + 2; i++) {
+        fine->p(i,0) = 0;
+        fine->p(i,fine->jmax+1) = 0;
+    }
+    for (int j = 0; j < fine->jmax + 2; j++) {
+        fine->p(0,j) = 0;
+        fine->p(fine->imax+1,j) = 0;
+    }
 }
 
 void Multigrid::relax(StaggeredGrid *grid, int numSweeps, float omg) {
@@ -74,16 +84,26 @@ void Multigrid::relax(StaggeredGrid *grid, int numSweeps, float omg) {
         // Jacobi smoother with relaxation factor (omega)
         for (int i = 1; i < grid->imax + 1; i++) {
             for (int j = 1; j < grid->jmax + 1; j++) {
-                grid->po(i, j) = grid->p(i, j);
+                grid->po(i,j) = grid->p(i,j);
                 grid->p(i, j) = (
-                    (1/(-2*grid->dx2 - 2*grid->dy2)) // 1/Aii
+                    (1.0/(-2.0*grid->dx2 - 2.0*grid->dy2)) // 1/Aii
                     *
                     (
-                        grid->RHS(i,j)*grid->dx2dy2 - grid->dy2*(grid->p(i+1,j) + grid->p(i-1,j)) - grid->dx2*(grid->p(i,j+1) + grid->p(i,j-1))
+                        grid->RHS(i,j)*grid->dx2dy2 - grid->dx2*(grid->po(i+1,j) + grid->po(i-1,j)) - grid->dy2*(grid->po(i,j+1) + grid->po(i,j-1))
                     )
                 );
-                grid->res(i, j) = grid->po(i, j) - grid->p(i, j);
             }
+        }
+    }
+
+    // calculate residual
+    for (int i = 1; i < grid->imax + 1; i++) {
+        for (int j = 1; j < grid->jmax + 1; j++) {
+            grid->res(i,j) = grid->RHS(i,j) - (
+                // Sparse matrix A
+                (1.0/grid->dx2)*(grid->p(i+1,j) - 2.0*grid->p(i,j) + grid->p(i-1,j)) +
+                (1.0/grid->dy2)*(grid->p(i,j+1) - 2.0*grid->p(i,j) + grid->p(i,j-1))
+            );
         }
     }
 }

@@ -33,8 +33,11 @@ namespace CFD {
         JACOBI,
         MULTIGRID_JACOBI,
         CONJUGATE_GRADIENT,
+        APCG,
+        JPCG,
         MGPCG,
-        MGPCG_FASTER,
+        MGPSD,
+        STEEPEST_DESCENT,
         ML
     };
     SolverType convertSolverType(const std::string& solver);
@@ -93,7 +96,7 @@ namespace CFD {
                 save_ml = params.save_ml;
                 no_vtk = params.no_vtk;
                 ml_model_path = params.ml_model_path;
-                maxiterations_cg = std::max(imax, jmax);
+                maxiterations_cg = imax*jmax;
             }
             int imax;
             int jmax;
@@ -155,10 +158,14 @@ namespace CFD {
             void solveWithJacobi();
             void solveWithMultigridJacobi();
             void solveWithConjugateGradient();
+            void solveWithJacobiPCG();
+            void solveWithAInversePCG();
             void solveWithMultigridPCG();
-            void solveWithMultigridPCGFaster();
+            void solveWithSteepestDescent();
+            void solveWithMultigridPSD();
             void solveWithML();
-            void computeDiscreteL2Norm();
+            void computeResidual();
+            void computeResidualNorm();
             void computeU();
             void computeV();
             void run();
