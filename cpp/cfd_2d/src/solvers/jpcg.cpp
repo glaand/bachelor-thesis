@@ -120,7 +120,6 @@ void FluidSimulation::solveWithJacobiPCG() {
             }
         }
         this->beta_cg = this->beta_top_cg/this->alpha_top_cg;
-        this->betas(this->it) = this->beta_cg;
 
         // Calculate new search vector
         for (int i = 1; i < this->grid.imax + 1; i++) {

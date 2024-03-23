@@ -69,3 +69,8 @@ add_executable(plane_shear_flow_2d prog/plane_shear_flow_2d.cpp)
 target_compile_options(plane_shear_flow_2d PRIVATE -fPIC)
 target_include_directories(plane_shear_flow_2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(plane_shear_flow_2d cfd_2d)
+
+# Tests
+add_executable(test_multigrid tests/test_multigrid.cpp)
+target_include_directories(test_multigrid PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(test_multigrid PRIVATE cfd_2d)

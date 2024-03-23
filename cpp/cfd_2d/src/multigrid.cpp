@@ -11,6 +11,7 @@ void Multigrid::vcycle(MultigridHierarchy *hierarchy, int currentLevel, float om
         // Relax on the coarset grid
         relax(hierarchy->grids[0].get(), numSweeps, omg);
     } else {
+
         // Relax on the current grid
         relax(hierarchy->grids[currentLevel].get(), numSweeps, omg);
 
@@ -32,12 +33,7 @@ void Multigrid::restrict_operator(const StaggeredGrid *fine, StaggeredGrid *coar
     // Restrict with full weighting
     // Briggs, Multigrid Tutorial, p. 36
 
-    // Reset coarse p
-    for (int i = 0; i < coarse->imax + 2; i++) {
-        for (int j = 0; j < coarse->jmax + 2; j++) {
-            coarse->p(i,j) = 0;
-        }
-    }
+    coarse->p.setZero();
 
     // Restrict res^h to RHS^{2h} but saving on RHS^{2h}
     for (int i = 1; i < coarse->imax + 1; i++) {
@@ -56,23 +52,29 @@ void Multigrid::prolongate_operator(const StaggeredGrid *coarse, StaggeredGrid *
     // Briggs, Multigrid Tutorial, p. 35
 
     // Prolongate p^{2h} to p^{2h} adding p^{2h}
-    for (int i = 1; i < coarse->imax + 1; i++) {
-        for (int j = 1; j < coarse->jmax + 1; j++) {
-            fine->p(2*i,2*j) += coarse->p(i,j);
-            fine->p(2*i+1,2*j) += 0.5 * (coarse->p(i,j) + coarse->p(i+1,j));
-            fine->p(2*i,2*j+1) += 0.5 * (coarse->p(i,j) + coarse->p(i,j+1));
-            fine->p(2*i+1,2*j+1) += 0.25 * (coarse->p(i,j) + coarse->p(i+1,j) + coarse->p(i,j+1) + coarse->p(i+1,j+1));
+    for (int i = 0; i < ((fine->imax + 2) / 2); i++) {
+        for (int j = 0; j < ((fine->jmax + 2) / 2); j++) {
+            fine->p(2*i,2*j) = coarse->p(i,j);
+            if (i < ((fine->imax + 2) / 2) - 1) {
+                fine->p(2*i+1,2*j) += 0.5 * (coarse->p(i,j) + coarse->p(i+1,j));
+            }
+            if (j < ((fine->jmax + 2) / 2) - 1) {
+                fine->p(2*i,2*j+1) += 0.5 * (coarse->p(i,j) + coarse->p(i,j+1));
+            }
+            if (i < ((fine->imax + 2) / 2) - 1 && j < ((fine->jmax + 2) / 2) - 1) {
+                fine->p(2*i+1,2*j+1) += 0.25 * (coarse->p(i,j) + coarse->p(i+1,j) + coarse->p(i,j+1) + coarse->p(i+1,j+1));
+            }
         }
     }
 
-    // Set boundaries to zero
+    // Set Boundaries to zero
     for (int i = 0; i < fine->imax + 2; i++) {
-        fine->p(i,0) = 0;
-        fine->p(i,fine->jmax+1) = 0;
+        fine->p(i,0) = 0.0;
+        fine->p(i,fine->jmax+1) = 0.0;
     }
     for (int j = 0; j < fine->jmax + 2; j++) {
-        fine->p(0,j) = 0;
-        fine->p(fine->imax+1,j) = 0;
+        fine->p(0,j) = 0.0;
+        fine->p(fine->imax+1,j) = 0.0;
     }
 }
 
@@ -82,14 +84,14 @@ void Multigrid::relax(StaggeredGrid *grid, int numSweeps, float omg) {
     
     for (int sweep = 0; sweep < numSweeps; sweep++) {
         // Jacobi smoother with relaxation factor (omega)
+        grid->po = grid->p;
         for (int i = 1; i < grid->imax + 1; i++) {
             for (int j = 1; j < grid->jmax + 1; j++) {
-                grid->po(i,j) = grid->p(i,j);
                 grid->p(i, j) = (
                     (1.0/(-2.0*grid->dx2 - 2.0*grid->dy2)) // 1/Aii
                     *
                     (
-                        grid->RHS(i,j)*grid->dx2dy2 - grid->dx2*(grid->po(i+1,j) + grid->po(i-1,j)) - grid->dy2*(grid->po(i,j+1) + grid->po(i,j-1))
+                        grid->RHS(i,j)*grid->dx2dy2 - grid->dx2*(grid->p(i+1,j) + grid->p(i-1,j)) - grid->dy2*(grid->p(i,j+1) + grid->p(i,j-1))
                     )
                 );
             }

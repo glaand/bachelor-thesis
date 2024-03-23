@@ -23,13 +23,9 @@ void FluidSimulation::solveWithMultigridPCG() {
         }
     }
 
-    // set preconditioner p to 0
-    this->preconditioner.p.setZero();
-
     // Initial guess for error vector
-    for (int m = 0; m < this->num_sweeps; m++) {
-        Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, this->num_sweeps);
-    }
+    this->preconditioner.p.setZero();
+    Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, this->num_sweeps);
 
     if (this->save_ml) {
         this->saveMLData();
@@ -74,10 +70,6 @@ void FluidSimulation::solveWithMultigridPCG() {
                 this->preconditioner.RHS(i,j) = this->grid.res(i,j);
             }
         }
-
-        // set preconditioner p to 0
-        this->preconditioner.p.setZero();
-
         // Calculate norm of residual
         this->computeResidualNorm();
 
@@ -88,19 +80,17 @@ void FluidSimulation::solveWithMultigridPCG() {
             break;
         }
         
-        // New guess for error vector 
-        for (int m = 0; m < this->num_sweeps; m++) {
-            Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, this->num_sweeps);
-        }
+        // New guess for error vector
+        this->preconditioner.p.setZero();
+        Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, this->num_sweeps);
 
         // Calculate beta
         for (int i = 1; i < this->grid.imax + 1; i++) {
             for (int j = 1; j < this->grid.jmax + 1; j++) {
-                this->beta_top_cg += this->preconditioner.p(i,j)*this->grid.res(i,j);
+                this->beta_top_cg += this->preconditioner.p(i,j)*this->preconditioner.res(i,j); // Explain this, than you won
             }
         }
         this->beta_cg = this->beta_top_cg/this->alpha_top_cg;
-        this->betas(this->it) = this->beta_cg;
 
         // Calculate new search vector
         for (int i = 1; i < this->grid.imax + 1; i++) {

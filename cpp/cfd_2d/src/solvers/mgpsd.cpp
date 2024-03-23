@@ -22,10 +22,8 @@ void FluidSimulation::solveWithMultigridPSD() {
     }
 
     while ((this->res_norm > this->eps || this->res_norm == 0) && this->n_cg < this->maxiterations_cg) {
-        // set preconditioner p to 0
-        this->preconditioner.p.setZero();
-
         // Initial guess for error vector
+        this->preconditioner.p.setZero();
         Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, this->num_sweeps);
 
         if (this->save_ml) {
