@@ -25,11 +25,13 @@ void FluidSimulation::solveWithMultigridPCG() {
 
     // Initial guess for error vector
     this->preconditioner.p.setZero();
-    Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, this->num_sweeps);
-
+    for (int k = 0; k < this->num_sweeps; k++) {
+        Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, this->num_sweeps);
+    }
     if (this->save_ml) {
         this->saveMLData();
     }
+
 
     // Initial search vector
     for (int i = 1; i < this->grid.imax + 1; i++) {
@@ -82,12 +84,17 @@ void FluidSimulation::solveWithMultigridPCG() {
         
         // New guess for error vector
         this->preconditioner.p.setZero();
-        Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, this->num_sweeps);
+        for (int k = 0; k < this->num_sweeps; k++) {
+            Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, this->num_sweeps);
+        }
+        if (this->save_ml) {
+            this->saveMLData();
+        }
 
         // Calculate beta
         for (int i = 1; i < this->grid.imax + 1; i++) {
             for (int j = 1; j < this->grid.jmax + 1; j++) {
-                this->beta_top_cg += this->preconditioner.p(i,j)*this->preconditioner.res(i,j); // Explain this, than you won
+                this->beta_top_cg += this->preconditioner.p(i,j)*this->grid.res(i,j); // Orthogonality of b - Mx
             }
         }
         this->beta_cg = this->beta_top_cg/this->alpha_top_cg;

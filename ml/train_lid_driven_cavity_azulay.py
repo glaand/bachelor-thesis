@@ -62,7 +62,7 @@ class Azulay(nn.Module):
 
         x11 = self.upsample(self.conv11(x10))
 
-        # add boundaries
+        # add zero boundaries
         x11 = F.pad(x11, (1, 1, 1, 1), "constant", 0)
 
         return x11
@@ -139,7 +139,7 @@ if __name__ == "__main__":
     writer = SummaryWriter('logs')
 
     # Train the model
-    num_epochs = 10000
+    num_epochs = 1000
     for epoch in tqdm(range(num_epochs)):
         # Forward pass
         predicted_error_vector = model(train_residual_data)

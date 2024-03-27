@@ -29,6 +29,38 @@ void Multigrid::vcycle(MultigridHierarchy *hierarchy, int currentLevel, float om
     }
 }
 
+void Multigrid::wcycle(MultigridHierarchy *hierarchy, int currentLevel, float omg, int numSweeps) {
+    if (currentLevel == 0) {
+        // Relax on the coarset grid
+        relax(hierarchy->grids[0].get(), numSweeps, omg);
+    } else {
+
+        // Relax on the current grid
+        relax(hierarchy->grids[currentLevel].get(), numSweeps, omg);
+
+        // Restrict the residual to the coarser grid
+        restrict_operator(hierarchy->grids[currentLevel].get(), hierarchy->grids[currentLevel-1].get());
+
+        // First recursive call for the first v-cycle
+        wcycle(hierarchy, currentLevel-1, omg, numSweeps);
+
+        // Prolongate the error to the current grid
+        prolongate_operator(hierarchy->grids[currentLevel-1].get(), hierarchy->grids[currentLevel].get());
+
+        // Post-smooth on the current grid
+        relax(hierarchy->grids[currentLevel].get(), numSweeps, omg);
+
+        // Second recursive call for the second v-cycle
+        wcycle(hierarchy, currentLevel-1, omg, numSweeps);
+
+        // Prolongate the error to the finer grid
+        prolongate_operator(hierarchy->grids[currentLevel-1].get(), hierarchy->grids[currentLevel].get());
+
+        // Post-smooth on the current grid
+        relax(hierarchy->grids[currentLevel].get(), numSweeps, omg);
+    }
+}
+
 void Multigrid::restrict_operator(const StaggeredGrid *fine, StaggeredGrid *coarse) {
     // Restrict with full weighting
     // Briggs, Multigrid Tutorial, p. 36
