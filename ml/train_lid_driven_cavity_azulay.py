@@ -90,8 +90,8 @@ if __name__ == "__main__":
         return torch.stack(data)
 
     # Load data
-    residual_data = load_data("ML_data/", "res", 10)
-    error_data = load_data("ML_data/", "e", 10)
+    residual_data = load_data("ML_data/", "res", 1)
+    error_data = load_data("ML_data/", "e", 1)
 
     print("Residual data shape:", residual_data.shape)
     print("Error data shape:", error_data.shape)
@@ -139,7 +139,7 @@ if __name__ == "__main__":
     writer = SummaryWriter('logs')
 
     # Train the model
-    num_epochs = 1000
+    num_epochs = 100000
     for epoch in tqdm(range(num_epochs)):
         # Forward pass
         predicted_error_vector = model(train_residual_data)
