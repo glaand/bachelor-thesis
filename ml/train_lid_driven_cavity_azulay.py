@@ -171,7 +171,7 @@ if __name__ == "__main__":
     writer = SummaryWriter('logs')
 
     # Train the model
-    num_epochs = 100000
+    num_epochs = 10000
     for epoch in tqdm(range(num_epochs)):
         # Forward pass
         predicted_error_vector = model(train_residual_data)
