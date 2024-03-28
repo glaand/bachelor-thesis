@@ -67,11 +67,22 @@ class Azulay(nn.Module):
 
         return x11
 
-def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
+""" def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
     # Compute losses
     # normalise true_error
     true_error = true_error / torch.max(true_error)
     loss_deep_learning = torch.sqrt(torch.mean((pred_error - true_error) ** 2, dim=[2, 3]))
+    total_loss = torch.mean(loss_deep_learning)
+    return total_loss """
+
+def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
+    # Compute residual - A*pred_error for each sample
+    residual_pred_error = torch.zeros_like(residual)
+    for i in range(residual.shape[0]):
+        residual_pred_error[i, 0] = torch.matmul(A, pred_error[i].view(-1)).view(grid_size_x, grid_size_y)
+
+    # Compute losses
+    loss_deep_learning = torch.sqrt(torch.mean((residual_pred_error - residual) ** 2, dim=[2, 3]))
     total_loss = torch.mean(loss_deep_learning)
     return total_loss
 
@@ -99,11 +110,32 @@ if __name__ == "__main__":
     # Prepare data
     grid_size_x = 34
     grid_size_y = 34
+    dx = 1 / (grid_size_x)
+    dy = 1 / (grid_size_y)
+    dx2 = dx ** 2
+    dy2 = dy ** 2
     vector_size = np.min([grid_size_x, grid_size_y])
     residual_data = residual_data.view(residual_data.shape[0], 1, grid_size_x, grid_size_y).float()
     residual_data = residual_data.to("cuda")
     error_data = error_data.view(error_data.shape[0], 1, grid_size_x, grid_size_y).float()
     error_data = error_data.to("cuda")
+
+    # Generate Matrix A (Laplacian matrix) for the Poisson equation
+    A = np.zeros((grid_size_x * grid_size_y, grid_size_x * grid_size_y))
+    for i in range(grid_size_x):
+        for j in range(grid_size_y):
+            k = i * grid_size_y + j
+            A[k, k] = -2 * (1 / dx2 + 1 / dy2)
+            if i > 0:
+                A[k, k - grid_size_y] = 1 / dx2
+            if i < grid_size_x - 1:
+                A[k, k + grid_size_y] = 1 / dx2
+            if j > 0:
+                A[k, k - 1] = 1 / dy2
+            if j < grid_size_y - 1:
+                A[k, k + 1] = 1 / dy2
+
+    A = torch.tensor(A).float().to("cuda")
 
     # Split data into train and test sets
     total_samples = residual_data.shape[0]
