@@ -56,6 +56,7 @@ FluidParams::FluidParams(std::string name, int argc, char* argv[])
     this->argument_parser.add_argument("--no_vtk").help("Disable VTK Rendering").default_value(false).action([](const std::string& value) { return std::stoi(value) == 1; });
     this->argument_parser.add_argument("--num_sweeps").help("Number of sweeps for multigrid").default_value(this->num_sweeps).action([](const std::string& value) { return std::stof(value); });
     this->argument_parser.add_argument("--ml_model_path").help("Path to ML model").default_value(this->ml_model_path).action([](const std::string& value) { return value; });
+    this->argument_parser.add_argument("--safety_factor").help("Safety factor for ML").default_value(this->safety_factor).action([](const std::string& value) { return std::stof(value); });
 
 
     try {
@@ -85,4 +86,5 @@ FluidParams::FluidParams(std::string name, int argc, char* argv[])
     this->solver_type = convertSolverType(this->argument_parser.get<std::string>("--solver"));
     this->num_sweeps = this->argument_parser.get<float>("--num_sweeps");
     this->ml_model_path = this->argument_parser.get<std::string>("--ml_model_path");
+    this->safety_factor = this->argument_parser.get<float>("--safety_factor");
 }

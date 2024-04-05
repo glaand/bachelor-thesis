@@ -14,15 +14,15 @@ from tqdm import tqdm
 import glob
 import os
 
-class Azulay(nn.Module):
+class Glatzl(nn.Module):
     def __init__(self):
-        super(Azulay, self).__init__()
+        super(Glatzl, self).__init__()
         # Encoder
         self.conv1 = nn.Conv2d(1, 16, kernel_size=3, padding=1)
         self.conv2 = nn.Conv2d(16, 32, kernel_size=3, padding=1)
         self.conv3 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
         self.conv4 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
-        
+
         # Decoder
         self.conv5 = nn.Conv2d(128, 64, kernel_size=3, padding=1)
         self.conv6 = nn.Conv2d(128, 64, kernel_size=3, padding=1)
@@ -32,7 +32,7 @@ class Azulay(nn.Module):
         self.conv10 = nn.Conv2d(32, 16, kernel_size=3, padding=1)
         self.conv11 = nn.Conv2d(16, 1, kernel_size=3, padding=1)
 
-        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear')
         self.downsample = nn.MaxPool2d(kernel_size=2, stride=2)
         self.activation1 = nn.PReLU()
         self.activation2 = nn.PReLU()
@@ -45,10 +45,9 @@ class Azulay(nn.Module):
         self.activation9 = nn.PReLU()
         self.activation10 = nn.PReLU()
 
-    def forward(self, rhs):
+    def forward(self, error):
         # x, get inner without boundary
-        x = rhs[:, :, 1:-1, 1:-1]
-        x = F.normalize(x, dim=[2, 3])
+        x = error[:, :, 1:-1, 1:-1]
 
         # Encoder
         x1 = self.activation1(self.downsample(self.conv1(x)))
@@ -76,35 +75,10 @@ class Azulay(nn.Module):
 
         return x11
 
-"""def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
-    # normalise true_error
-    true_error = F.normalize(true_error, dim=[2, 3])
-    pred_error = F.normalize(pred_error, dim=[2, 3])
-    loss_deep_learning = torch.sqrt(torch.mean((pred_error - true_error) ** 2, dim=[2, 3]))
-    total_loss = torch.mean(loss_deep_learning)
-    return total_loss"""
-
-def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
-    dx2 = (1.0 / grid_size_x) ** 2
-    dy2 = (1.0 / grid_size_y) ** 2
-
-    # Reshape for batch operations
-    pred_error = pred_error.view(-1, grid_size_x, grid_size_y)
-    true_error = true_error.view(-1, grid_size_x, grid_size_y)
-    residual = residual.view(-1, grid_size_x, grid_size_y)
-
-    # Compute losses
-    loss_deep_learning = F.mse_loss(pred_error, true_error, reduction='none')
-    loss_simulation = torch.norm(
-        (residual[:, 1:-1, 1:-1] - (
-            (1/dx2) * (pred_error[:, 2:, 1:-1] - 2*pred_error[:, 1:-1, 1:-1] + pred_error[:, :-2, 1:-1]) +
-            (1/dy2) * (pred_error[:, 1:-1, 2:] - 2*pred_error[:, 1:-1, 1:-1] + pred_error[:, 1:-1, :-2])
-        )),
-        dim=[1, 2]
-    )
-
-    total_loss = torch.mean(loss_simulation)
-
+def custom_loss(pred_correction, ideal_error, input_error, grid_size_x, grid_size_y):
+    # Compute losses, mean absolute error
+    mae = nn.L1Loss()
+    total_loss = mae(pred_correction+input_error, ideal_error)
     return total_loss
 
 if __name__ == "__main__":
@@ -115,7 +89,7 @@ if __name__ == "__main__":
         print(f"Skipping every {skip} files")
         data = []
         files = glob.glob(os.path.join(folder_path, f"{prefix}_*.dat"))
-        files.sort(key=lambda x: int(os.path.basename(x).split('_')[1].split('.')[0]))
+        files.sort(key=lambda x: int(os.path.basename(x).split('_')[2].split('.')[0]))
         for i, file in enumerate(tqdm(files)):
             if i % skip == 0:
                 loaded_data = np.loadtxt(file)
@@ -123,11 +97,11 @@ if __name__ == "__main__":
         return torch.stack(data)
 
     # Load data
-    residual_data = load_data("ML_data/", "res", 1)
-    error_data = load_data("ML_data/", "e", 1)
+    input_error = load_data("ML_data/", "input_error", 100)[:10]
+    ideal_error = load_data("ML_data/", "ideal_error", 100)[:10]
 
-    print("Residual data shape:", residual_data.shape)
-    print("Error data shape:", error_data.shape)
+    print("Input error data shape:", input_error.shape)
+    print("Ideal error data shape:", ideal_error.shape)
 
     # Prepare data
     grid_size_x = 34
@@ -137,38 +111,38 @@ if __name__ == "__main__":
     dx2 = dx ** 2
     dy2 = dy ** 2
     vector_size = np.min([grid_size_x, grid_size_y])
-    residual_data = residual_data.view(residual_data.shape[0], 1, grid_size_x, grid_size_y).float()
-    residual_data = residual_data.to("cuda")
-    error_data = error_data.view(error_data.shape[0], 1, grid_size_x, grid_size_y).float()
-    error_data = error_data.to("cuda")
+    input_error = input_error.view(input_error.shape[0], 1, grid_size_x, grid_size_y).float()
+    input_error = input_error.to("cuda")
+    ideal_error = ideal_error.view(ideal_error.shape[0], 1, grid_size_x, grid_size_y).float()
+    ideal_error = ideal_error.to("cuda")
 
     # Split data into train and test sets
-    total_samples = residual_data.shape[0]
+    total_samples = input_error.shape[0]
     train_size = int(0.8 * total_samples)
     test_size = total_samples - train_size
 
     train_data, test_data = random_split(
-        list(zip(residual_data, error_data)), 
+        list(zip(input_error, ideal_error)), 
         [train_size, test_size],
         generator=torch.Generator().manual_seed(42)
     )
 
-    train_residual_data, train_error_data = zip(*train_data)
-    test_residual_data, test_error_data = zip(*test_data)
+    train_input_error, train_ideal_error = zip(*train_data)
+    test_input_error, test_ideal_error = zip(*test_data)
 
-    train_residual_data = torch.stack(train_residual_data).to("cuda")
-    train_error_data = torch.stack(train_error_data).to("cuda")
-    test_residual_data = torch.stack(test_residual_data).to("cuda")
-    test_error_data = torch.stack(test_error_data).to("cuda")
+    train_input_error = torch.stack(train_input_error).to("cuda")
+    train_ideal_error = torch.stack(train_ideal_error).to("cuda")
+    test_input_error = torch.stack(test_input_error).to("cuda")
+    test_ideal_error = torch.stack(test_ideal_error).to("cuda")
 
 
-    model = Azulay()
+    model = Glatzl()
     model.to("cuda")
 
     # Define the optimizer
     optimizer = optim.Adam(model.parameters(), lr=1e-2, weight_decay=1e-5, amsgrad=True)
 
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, factor=0.5, verbose=True)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=20, factor=0.1, verbose=True)
 
     # Set the model in training mode
     model.train()
@@ -176,13 +150,13 @@ if __name__ == "__main__":
     writer = SummaryWriter('logs')
 
     # Train the model
-    num_epochs = 1000
+    num_epochs = 10000
     for epoch in tqdm(range(num_epochs)):
         # Forward pass
-        predicted_error_vector = model(train_residual_data)
+        predicted_error_vector = model(train_input_error)
 
         # Calculate the loss
-        loss = custom_loss(predicted_error_vector, train_error_data, train_residual_data, grid_size_x, grid_size_y)
+        loss = custom_loss(predicted_error_vector, train_ideal_error, train_input_error, grid_size_x, grid_size_y)
 
         # Backward pass and optimization
         optimizer.zero_grad()
@@ -205,20 +179,17 @@ if __name__ == "__main__":
     # Evaluate the model on the test set
     model.eval()
     with torch.no_grad():
-        predicted_error_vector = model(test_residual_data)
-        test_loss = custom_loss(predicted_error_vector, test_error_data, test_residual_data, grid_size_x, grid_size_y)
+        predicted_error_vector = model(test_input_error)
+        test_loss = custom_loss(predicted_error_vector, test_ideal_error, test_input_error, grid_size_x, grid_size_y)
         print(f"Test Loss: {test_loss}")
 
     # Convert to Torchscript via Annotation
     model.eval()
-    traced = torch.jit.trace(model, test_residual_data[0].unsqueeze(0))
-    traced.save("model_azulay.pt")
+    traced = torch.jit.trace(model, test_input_error[0].unsqueeze(0))
+    traced.save("model_glatzl.pt")
 
     # generate random tensor to test the model
-    input_tensor = train_residual_data[0].unsqueeze(0)
+    input_tensor = test_input_error[0].unsqueeze(0)
     output = traced(input_tensor)
     # save output to e.dat
     output = output.squeeze(0).squeeze(0).cpu().detach().numpy()
-    np.savetxt("e.dat", output)
-    print(output)
-    print(output.shape)

@@ -3,11 +3,15 @@
 using namespace CFD;
 
 void FluidSimulation::inferenceExp1() {
-    // Initial guess for error vector with deep learning
+    // Calculate the error correction with deep learning
     auto options = torch::TensorOptions().dtype(torch::kFloat);
-    torch::Tensor T = torch::from_blob(this->grid.res.data(), {this->grid.res.rows(), this->grid.res.cols()}, options).clone();
+    torch::Tensor T = torch::zeros({this->grid.jmax+2, this->grid.imax+2}, options);
+    for(int i = 1; i < this->grid.imax + 1; i++) {
+        for(int j = 1; j < this->grid.jmax + 1; j++) {
+            T[j][i] = this->preconditioner.RHS(j,i);
+        }
+    }
     T = T.to(torch::kCUDA);
-    T = torch::transpose(T, 0, 1);
     T = T.unsqueeze(0).unsqueeze(0);
     auto output = this->model.forward({ T }).toTensor();
     output = output.to(torch::kCPU).squeeze(0).squeeze(0);
@@ -15,24 +19,9 @@ void FluidSimulation::inferenceExp1() {
     auto output_acc = output.accessor<float,2>();
     for(int i = 1; i < this->grid.imax + 1; i++) {
         for(int j = 1; j < this->grid.jmax + 1; j++) {
-            this->preconditioner.p(i,j) = output_acc[j][i];
+            this->preconditioner.p(i,j) = this->safety_factor*output_acc[i][j];
         }
     }
-
-    float norm_RHS = this->preconditioner.RHS.squaredNorm();
-    float norm_A = 0.0;
-    for (int i = 1; i < this->grid.imax + 1; i++) {
-        for (int j = 1; j < this->grid.jmax + 1; j++) {
-            norm_A += (
-                (1/this->grid.dx2)*(2) +
-                (1/this->grid.dy2)*(2)
-            );
-        }
-    }
-
-    norm_A = sqrt(norm_A);
-
-    this->preconditioner.p *= norm_RHS/norm_A;
 }
 
 void FluidSimulation::solveWithML() {
@@ -57,6 +46,13 @@ void FluidSimulation::solveWithML() {
     // Initial guess for error vector
     this->preconditioner.p.setZero();
     this->inferenceExp1();
+
+    /*
+    * search_vector is primarly focus of study
+    * save, residual, diff from p and po, and search_vector
+    * cheaper deep learning model
+    * initial p infer, but first search direction
+    */
 
     // Initial search vector
     for (int i = 1; i < this->grid.imax + 1; i++) {
@@ -109,12 +105,12 @@ void FluidSimulation::solveWithML() {
         }
         
         // New guess for error vector
+        this->preconditioner.p.setZero();
         this->inferenceExp1();
-
         // Calculate beta
         for (int i = 1; i < this->grid.imax + 1; i++) {
             for (int j = 1; j < this->grid.jmax + 1; j++) {
-                this->beta_top_cg += this->preconditioner.p(i,j)*this->preconditioner.res(i,j); // Orthogonality of b - Mx
+                this->beta_top_cg += this->preconditioner.p(i,j)*this->grid.res(i,j); // Orthogonality of b - Mx
             }
         }
         this->beta_cg = this->beta_top_cg/this->alpha_top_cg;

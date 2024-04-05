@@ -63,6 +63,7 @@ namespace CFD {
             bool no_vtk = false;
             SolverType solver_type = SolverType::JACOBI;
             std::string ml_model_path = "";
+            float safety_factor = 1e-6;
 
             argparse::ArgumentParser argument_parser;
     };
@@ -96,6 +97,7 @@ namespace CFD {
                 no_vtk = params.no_vtk;
                 ml_model_path = params.ml_model_path;
                 maxiterations_cg = imax*jmax;
+                safety_factor = params.safety_factor;
             }
             int imax;
             int jmax;
@@ -123,6 +125,7 @@ namespace CFD {
             int num_sweeps;
             bool save_ml;
             bool no_vtk;
+            float safety_factor;
             std::string ml_model_path;
             VectorXd res_norm_over_it_with_pressure_solver;
             VectorXd res_norm_over_it_without_pressure_solver;

@@ -9,9 +9,9 @@ using namespace Eigen;
 void Kernel::saveMatrix(const char* filename, MatrixXd* matrix) {
     std::ofstream file(filename);
     if (file.is_open()) {
-        // Loop through transposed matrix and write to file
-        for (int j = 0; j < matrix->cols(); j++) {
-            for (int i = 0; i < matrix->rows(); i++) {
+        // Loop through matrix and write to file
+        for (int i = 0; i < matrix->rows(); i++) {
+            for (int j = 0; j < matrix->cols(); j++) {
                 file << std::fixed << std::setprecision(32) << matrix->coeffRef(i, j) << " ";
             }
             file << std::endl;
@@ -19,7 +19,7 @@ void Kernel::saveMatrix(const char* filename, MatrixXd* matrix) {
 
         // Close the file
         file.close();
-        std::cout << "Transposed matrix saved to " << filename << std::endl;
+        std::cout << "Matrix saved to " << filename << std::endl;
     } else {
         std::cerr << "Error opening file " << filename << std::endl;
     }
@@ -46,8 +46,8 @@ void Kernel::saveMatrix(const char* filename, MatrixXf* matrix) {
     std::ofstream file(filename);
     if (file.is_open()) {
         // Loop through transposed matrix and write to file
-        for (int j = 0; j < matrix->cols(); j++) {
-            for (int i = 0; i < matrix->rows(); i++) {
+        for (int i = 0; i < matrix->rows(); i++) {
+            for (int j = 0; j < matrix->cols(); j++) {
                 file << std::fixed << std::setprecision(32) << matrix->coeffRef(i, j) << " ";
             }
             file << std::endl;

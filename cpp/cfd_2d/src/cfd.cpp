@@ -342,6 +342,7 @@ namespace CFD {
         try {
             // Deserialize the ScriptModule from a file using torch::jit::load().
             this->model = torch::jit::load(modelPath);
+            this->model.eval();
         } catch (const c10::Error& e) {
             std::cerr << "Error loading the model\n";
             // print the error and stack trace
