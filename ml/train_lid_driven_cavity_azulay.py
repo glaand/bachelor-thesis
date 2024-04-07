@@ -76,17 +76,17 @@ class Azulay(nn.Module):
 
         return x11
 
-"""def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
+def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
     # normalise true_error
     true_error = F.normalize(true_error, dim=[2, 3])
     pred_error = F.normalize(pred_error, dim=[2, 3])
     loss_deep_learning = torch.sqrt(torch.mean((pred_error - true_error) ** 2, dim=[2, 3]))
     total_loss = torch.mean(loss_deep_learning)
-    return total_loss"""
+    return total_loss
 
-def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
-    dx2 = (1.0 / grid_size_x) ** 2
-    dy2 = (1.0 / grid_size_y) ** 2
+"""def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
+    dx2 = (1.0 / (grid_size_x-2)) ** 2
+    dy2 = (1.0 / (grid_size_y-2)) ** 2
 
     # Reshape for batch operations
     pred_error = pred_error.view(-1, grid_size_x, grid_size_y)
@@ -95,6 +95,7 @@ def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
 
     # Compute losses
     loss_deep_learning = F.mse_loss(pred_error, true_error, reduction='none')
+
     loss_simulation = torch.norm(
         (residual[:, 1:-1, 1:-1] - (
             (1/dx2) * (pred_error[:, 2:, 1:-1] - 2*pred_error[:, 1:-1, 1:-1] + pred_error[:, :-2, 1:-1]) +
@@ -103,9 +104,47 @@ def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
         dim=[1, 2]
     )
 
+    total_loss = torch.mean(loss_simulation)*torch.mean(loss_deep_learning)
+
+    return total_loss"""
+
+"""def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
+    dx2 = (1.0 / grid_size_x) ** 2
+    dy2 = (1.0 / grid_size_y) ** 2
+
+    # Reshape for batch operations
+    pred_error = pred_error.view(-1, grid_size_x, grid_size_y)
+    true_error = true_error.view(-1, grid_size_x, grid_size_y)
+    residual = residual.view(-1, grid_size_x, grid_size_y)
+
+    Asearch_vector = torch.zeros_like(pred_error)
+    # Calculate Asearch_vector for the entire batch
+    Asearch_vector[:, 1:-1, 1:-1] = (
+        (1/dx2) * (pred_error[:, 2:, 1:-1] - 2*pred_error[:, 1:-1, 1:-1] + pred_error[:, :-2, 1:-1]) +
+        (1/dy2) * (pred_error[:, 1:-1, 2:] - 2*pred_error[:, 1:-1, 1:-1] + pred_error[:, 1:-1, :-2])
+    )
+
+    # Compute alpha for the entire batch
+    alpha_top = torch.sum(pred_error.view(-1, grid_size_x*grid_size_y) * residual.view(-1, grid_size_x*grid_size_y))
+    alpha_bottom = torch.sum(pred_error.view(-1, grid_size_x*grid_size_y) * Asearch_vector.view(-1, grid_size_x*grid_size_y))
+    alpha = alpha_top / alpha_bottom
+
+    # Reduce grid-like to vector-like
+    Asearch_vector = Asearch_vector.view(-1, grid_size_x*grid_size_y)
+    residual = residual.view(-1, grid_size_x*grid_size_y)
+    alpha = alpha.view(-1, 1)
+
+    # copy alpha to the same shape as Asearch_vector
+    alpha = alpha.repeat(1, grid_size_x*grid_size_y)
+
+    # Compute losses
+    loss_simulation = torch.norm(
+        (residual - alpha*Asearch_vector)
+    ) / pred_error.shape[0]
+
     total_loss = torch.mean(loss_simulation)
 
-    return total_loss
+    return total_loss"""
 
 if __name__ == "__main__":
     # random state 
@@ -123,8 +162,8 @@ if __name__ == "__main__":
         return torch.stack(data)
 
     # Load data
-    residual_data = load_data("ML_data/", "res", 1)
-    error_data = load_data("ML_data/", "e", 1)
+    residual_data = load_data("ML_data/", "res", 100)
+    error_data = load_data("ML_data/", "e", 100)
 
     print("Residual data shape:", residual_data.shape)
     print("Error data shape:", error_data.shape)

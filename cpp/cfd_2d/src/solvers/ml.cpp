@@ -2,6 +2,7 @@
 
 using namespace CFD;
 
+
 void FluidSimulation::inferenceExp1() {
     // Calculate the error correction with deep learning
     auto options = torch::TensorOptions().dtype(torch::kFloat);
@@ -17,9 +18,10 @@ void FluidSimulation::inferenceExp1() {
     output = output.to(torch::kCPU).squeeze(0).squeeze(0);
 
     auto output_acc = output.accessor<float,2>();
+
     for(int i = 1; i < this->grid.imax + 1; i++) {
         for(int j = 1; j < this->grid.jmax + 1; j++) {
-            this->preconditioner.p(i,j) = this->safety_factor*output_acc[i][j];
+            this->preconditioner.p(i,j) = this->safety_factor*output_acc[j][i];
         }
     }
 }
@@ -35,6 +37,8 @@ void FluidSimulation::solveWithML() {
     this->alpha_cg = 0.0;
     this->alpha_top_cg = 0.0;
     this->alpha_bottom_cg = 0.0;
+    this->beta_cg = 0.0;
+    this->beta_top_cg = 0.0;
 
     for (int i = 1; i < this->grid.imax + 1; i++) {
         for (int j = 1; j < this->grid.jmax + 1; j++) {
@@ -44,19 +48,10 @@ void FluidSimulation::solveWithML() {
     }
 
     // Initial guess for error vector
-    this->preconditioner.p.setZero();
     this->inferenceExp1();
 
-    /*
-    * search_vector is primarly focus of study
-    * save, residual, diff from p and po, and search_vector
-    * cheaper deep learning model
-    * initial p infer, but first search direction
-    */
-
-    // Initial search vector
-    for (int i = 1; i < this->grid.imax + 1; i++) {
-        for (int j = 1; j < this->grid.jmax + 1; j++) {
+    for(int i = 1; i < this->grid.imax + 1; i++) {
+        for(int j = 1; j < this->grid.jmax + 1; j++) {
             this->grid.search_vector(i,j) = this->preconditioner.p(i,j);
         }
     }
@@ -82,18 +77,18 @@ void FluidSimulation::solveWithML() {
                 this->alpha_bottom_cg += this->grid.search_vector(i,j)*this->grid.Asearch_vector(i,j);
             }
         }
-        
         this->alpha_cg = this->alpha_top_cg/this->alpha_bottom_cg;
 
         // Update pressure and new residual
         for (int i = 1; i < this->grid.imax + 1; i++) {
             for (int j = 1; j < this->grid.jmax + 1; j++) {
-                this->grid.po(i,j) = this->grid.p(i,j); // smart residual preparation
                 this->grid.p(i,j) += this->alpha_cg*this->grid.search_vector(i,j);
                 this->grid.res(i,j) -= this->alpha_cg*this->grid.Asearch_vector(i,j);
+                this->preconditioner.p(i,j) = this->grid.res(i,j);
                 this->preconditioner.RHS(i,j) = this->grid.res(i,j);
             }
         }
+
         // Calculate norm of residual
         this->computeResidualNorm();
 
@@ -103,10 +98,10 @@ void FluidSimulation::solveWithML() {
             this->it++;
             break;
         }
-        
+
         // New guess for error vector
-        this->preconditioner.p.setZero();
         this->inferenceExp1();
+
         // Calculate beta
         for (int i = 1; i < this->grid.imax + 1; i++) {
             for (int j = 1; j < this->grid.jmax + 1; j++) {
@@ -122,7 +117,6 @@ void FluidSimulation::solveWithML() {
             }
         }
 
-        this->res_norm_over_it_with_pressure_solver(this->it) = this->res_norm;
         this->it++;
         this->n_cg++;
     }
