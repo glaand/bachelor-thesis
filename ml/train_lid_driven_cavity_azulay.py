@@ -44,6 +44,7 @@ class Azulay(nn.Module):
         self.activation8 = nn.PReLU()
         self.activation9 = nn.PReLU()
         self.activation10 = nn.PReLU()
+        self.activation11 = nn.PReLU()
 
     def forward(self, rhs):
         # x, get inner without boundary
@@ -70,6 +71,7 @@ class Azulay(nn.Module):
         x10 = self.activation10(self.conv10(x10))
 
         x11 = self.upsample(self.conv11(x10))
+        x11 = self.activation11(x11)
 
         # add zero boundaries
         x11 = F.pad(x11, (1, 1, 1, 1), "constant", 0)
@@ -77,11 +79,25 @@ class Azulay(nn.Module):
         return x11
 
 def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
-    # normalise true_error
-    true_error = F.normalize(true_error, dim=[2, 3])
-    pred_error = F.normalize(pred_error, dim=[2, 3])
-    loss_deep_learning = torch.sqrt(torch.mean((pred_error - true_error) ** 2, dim=[2, 3]))
-    total_loss = torch.mean(loss_deep_learning)
+    # grid-like to vector-like
+    true_error = true_error.view(-1, grid_size_x*grid_size_y)
+    pred_error = pred_error.view(-1, grid_size_x*grid_size_y)
+    
+    # Compute cosine similarity
+    cosine_similarity = F.cosine_similarity(pred_error, true_error, dim=1)  # Along the batch dimension
+    
+    # Compute the distance from 1.0
+    alignment_loss = 1.0 - cosine_similarity
+    
+    # Take mean over the spatial dimensions and then mean across the batch
+    alignment_loss = torch.mean(alignment_loss)
+    
+    # Additionally, you might want to incorporate your existing loss term
+    loss_deep_learning = torch.sqrt(torch.mean((pred_error - true_error) ** 2))
+    
+    # Total loss
+    total_loss = alignment_loss
+    
     return total_loss
 
 """def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
@@ -162,8 +178,8 @@ if __name__ == "__main__":
         return torch.stack(data)
 
     # Load data
-    residual_data = load_data("ML_data/", "res", 100)
-    error_data = load_data("ML_data/", "e", 100)
+    residual_data = load_data("ML_data/", "res", 1)
+    error_data = load_data("ML_data/", "e", 1)
 
     print("Residual data shape:", residual_data.shape)
     print("Error data shape:", error_data.shape)
@@ -214,30 +230,42 @@ if __name__ == "__main__":
 
     writer = SummaryWriter('logs')
 
+    # Define batch size
+    batch_size = 32
+
     # Train the model
-    num_epochs = 1000
+    num_epochs = 100
+    total_batches = len(train_residual_data) // batch_size
+
     for epoch in tqdm(range(num_epochs)):
-        # Forward pass
-        predicted_error_vector = model(train_residual_data)
+        # Shuffle the training data
+        shuffled_indices = torch.randperm(len(train_residual_data))
+        train_residual_data_shuffled = train_residual_data[shuffled_indices]
+        train_error_data_shuffled = train_error_data[shuffled_indices]
+        
+        for i in range(total_batches):
+            # Get the current batch
+            batch_residual_data = train_residual_data_shuffled[i * batch_size: (i + 1) * batch_size]
+            batch_error_data = train_error_data_shuffled[i * batch_size: (i + 1) * batch_size]
 
-        # Calculate the loss
-        loss = custom_loss(predicted_error_vector, train_error_data, train_residual_data, grid_size_x, grid_size_y)
+            # Forward pass
+            predicted_error_vector = model(batch_residual_data)
 
-        # Backward pass and optimization
-        optimizer.zero_grad()
-        loss.backward()
+            # Calculate the loss
+            loss = custom_loss(predicted_error_vector, batch_error_data, batch_residual_data, grid_size_x, grid_size_y)
 
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            # Backward pass and optimization
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-        optimizer.step()
+            writer.add_scalar('Loss/train', loss.item(), epoch * total_batches + i)
+            writer.add_scalar('Learning Rate', optimizer.param_groups[0]['lr'], epoch * total_batches + i)
 
-        writer.add_scalar('Loss/train', loss.item(), epoch)
-        writer.add_scalar('Learning Rate', optimizer.param_groups[0]['lr'], epoch)
+            print(f"Epoch {epoch+1}/{num_epochs}, Batch {i+1}/{total_batches}, Train Loss: {loss.item()}")
 
         # Update the learning rate scheduler
         scheduler.step(loss)
-
-        print(f"Epoch {epoch+1}/{num_epochs}, Train Loss: {loss.item()}")
 
     writer.close()
 

@@ -97,8 +97,8 @@ if __name__ == "__main__":
         return torch.stack(data)
 
     # Load data
-    residual_data = load_data("ML_data/", "res", 10)
-    error_data = load_data("ML_data/", "e", 10)
+    residual_data = load_data("ML_data/", "res", 1)
+    error_data = load_data("ML_data/", "e", 1)
 
     print("Residual data shape:", residual_data.shape)
     print("Error data shape:", error_data.shape)
@@ -146,7 +146,7 @@ if __name__ == "__main__":
     writer = SummaryWriter('logs')
 
     # Train the model
-    num_epochs = 1000
+    num_epochs = 100
     for epoch in tqdm(range(num_epochs)):
         # Forward pass
         predicted_error_vector = model(train_residual_data)
@@ -182,7 +182,7 @@ if __name__ == "__main__":
     # Convert to Torchscript via Annotation
     model.eval()
     traced = torch.jit.trace(model, test_residual_data[0].unsqueeze(0))
-    traced.save("model.pt")
+    traced.save("model_kaneda.pt")
 
     # generate random tensor to test the model
     input_tensor = test_residual_data[0].unsqueeze(0)

@@ -63,14 +63,6 @@ void FluidSimulation::solveWithMultigridPCG() {
         }
         this->alpha_cg = this->alpha_top_cg/this->alpha_bottom_cg;
 
-        std::cout << "alpha_cg: " << this->alpha_cg << std::endl;
-        std::cout << "alpha top cg: " << this->alpha_top_cg << std::endl;
-        std::cout << "alpha bottom cg: " << this->alpha_bottom_cg << std::endl;
-        std::cout << "Asearch vector norm: " << this->grid.Asearch_vector.norm() << std::endl;
-        std::cout << "search vector norm: " << this->grid.search_vector.norm() << std::endl;
-        std::cout << "preconditioner p norm: " << this->preconditioner.p.norm() << std::endl;
-        std::cout << "residual norm: " << this->grid.res.norm() << std::endl;
-
         // Update pressure and new residual
         for (int i = 1; i < this->grid.imax + 1; i++) {
             for (int j = 1; j < this->grid.jmax + 1; j++) {
