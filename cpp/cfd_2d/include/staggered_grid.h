@@ -41,6 +41,9 @@ namespace CFD {
             dx2 = dx * dx;
             dy2 = dy * dy;
             dx2dy2 = dx2 * dy2;
+
+            input_ml = torch::zeros({jmax+2, imax+2}, torch::TensorOptions().dtype(torch::kFloat));
+            output_ml = torch::zeros({jmax+2, imax+2}, torch::TensorOptions().dtype(torch::kFloat));
         }
         float findMaxAbsoluteU() const;
         float findMaxAbsoluteV() const;
@@ -69,5 +72,9 @@ namespace CFD {
         // Conjugated Gradient components
         MatrixXf search_vector;
         MatrixXf Asearch_vector;
+
+        // ML
+        torch::Tensor input_ml;
+        torch::Tensor output_ml;
     };
 }

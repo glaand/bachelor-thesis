@@ -17,20 +17,22 @@ import os
 class Azulay(nn.Module):
     def __init__(self):
         super(Azulay, self).__init__()
+        self.padding_size = 0
+        self.kernel_size = 1
         # Encoder
-        self.conv1 = nn.Conv2d(1, 16, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, padding=1)
-        self.conv3 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
-        self.conv4 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
+        self.conv1 = nn.Conv2d(1, 16, kernel_size=self.kernel_size, padding=self.padding_size)
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=self.kernel_size, padding=self.padding_size)
+        self.conv3 = nn.Conv2d(32, 64, kernel_size=self.kernel_size, padding=self.padding_size)
+        self.conv4 = nn.Conv2d(64, 128, kernel_size=self.kernel_size, padding=self.padding_size)
         
         # Decoder
-        self.conv5 = nn.Conv2d(128, 64, kernel_size=3, padding=1)
-        self.conv6 = nn.Conv2d(128, 64, kernel_size=3, padding=1)
-        self.conv7 = nn.Conv2d(64, 32, kernel_size=3, padding=1)
-        self.conv8 = nn.Conv2d(64, 32, kernel_size=3, padding=1)
-        self.conv9 = nn.Conv2d(32, 16, kernel_size=3, padding=1)
-        self.conv10 = nn.Conv2d(32, 16, kernel_size=3, padding=1)
-        self.conv11 = nn.Conv2d(16, 1, kernel_size=3, padding=1)
+        self.conv5 = nn.Conv2d(128, 64, kernel_size=self.kernel_size, padding=self.padding_size)
+        self.conv6 = nn.Conv2d(128, 64, kernel_size=self.kernel_size, padding=self.padding_size)
+        self.conv7 = nn.Conv2d(64, 32, kernel_size=self.kernel_size, padding=self.padding_size)
+        self.conv8 = nn.Conv2d(64, 32, kernel_size=self.kernel_size, padding=self.padding_size)
+        self.conv9 = nn.Conv2d(32, 16, kernel_size=self.kernel_size, padding=self.padding_size)
+        self.conv10 = nn.Conv2d(32, 16, kernel_size=self.kernel_size, padding=self.padding_size)
+        self.conv11 = nn.Conv2d(16, 1, kernel_size=self.kernel_size, padding=self.padding_size)
 
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
         self.downsample = nn.MaxPool2d(kernel_size=2, stride=2)
@@ -56,7 +58,6 @@ class Azulay(nn.Module):
         x2 = self.activation2(self.downsample(self.conv2(x1)))
         x3 = self.activation3(self.downsample(self.conv3(x2)))
         x4 = self.activation4(self.downsample(self.conv4(x3)))
-
         # Decoder
         x5 = self.activation5(self.upsample(self.conv5(x4)))
         x6 = torch.cat([x5, x3], dim=1)
@@ -77,7 +78,7 @@ class Azulay(nn.Module):
         x11 = F.pad(x11, (1, 1, 1, 1), "constant", 0)
 
         return x11
-
+    
 def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
     # grid-like to vector-like
     true_error = true_error.view(-1, grid_size_x*grid_size_y)
@@ -180,6 +181,19 @@ if __name__ == "__main__":
     # Load data
     residual_data = load_data("ML_data/", "res", 1)
     error_data = load_data("ML_data/", "e", 1)
+    # only first 100
+    residual_data = residual_data
+    error_data = error_data
+
+    augment_data = True
+
+    if augment_data:
+        # Data augmentation - flip the data along the x-axis
+        residual_data = torch.cat([residual_data, residual_data.flip(1)])
+        error_data = torch.cat([error_data, error_data.flip(1)])
+        # Data augmentation - flip the data along the y-axis
+        #residual_data = torch.cat([residual_data, residual_data.flip(2)])
+        #error_data = torch.cat([error_data, error_data.flip(2)])
 
     print("Residual data shape:", residual_data.shape)
     print("Error data shape:", error_data.shape)
@@ -211,10 +225,10 @@ if __name__ == "__main__":
     train_residual_data, train_error_data = zip(*train_data)
     test_residual_data, test_error_data = zip(*test_data)
 
-    train_residual_data = torch.stack(train_residual_data).to("cuda")
-    train_error_data = torch.stack(train_error_data).to("cuda")
-    test_residual_data = torch.stack(test_residual_data).to("cuda")
-    test_error_data = torch.stack(test_error_data).to("cuda")
+    train_residual_data = torch.stack(train_residual_data)
+    train_error_data = torch.stack(train_error_data)
+    test_residual_data = torch.stack(test_residual_data)
+    test_error_data = torch.stack(test_error_data)
 
 
     model = Azulay()
@@ -231,10 +245,10 @@ if __name__ == "__main__":
     writer = SummaryWriter('logs')
 
     # Define batch size
-    batch_size = 32
+    batch_size = 128
 
     # Train the model
-    num_epochs = 100
+    num_epochs = 10
     total_batches = len(train_residual_data) // batch_size
 
     for epoch in tqdm(range(num_epochs)):
@@ -245,8 +259,8 @@ if __name__ == "__main__":
         
         for i in range(total_batches):
             # Get the current batch
-            batch_residual_data = train_residual_data_shuffled[i * batch_size: (i + 1) * batch_size]
-            batch_error_data = train_error_data_shuffled[i * batch_size: (i + 1) * batch_size]
+            batch_residual_data = train_residual_data_shuffled[i * batch_size: (i + 1) * batch_size].to("cuda")
+            batch_error_data = train_error_data_shuffled[i * batch_size: (i + 1) * batch_size].to("cuda")
 
             # Forward pass
             predicted_error_vector = model(batch_residual_data)
