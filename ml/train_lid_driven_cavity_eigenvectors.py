@@ -14,70 +14,67 @@ from tqdm import tqdm
 import glob
 import os
 
-class Azulay(nn.Module):
+class Kaneda(nn.Module):
     def __init__(self):
-        super(Azulay, self).__init__()
-        self.padding_size = 0
-        self.kernel_size = 1
-        # Encoder
-        self.conv1 = nn.Conv2d(1, 16, kernel_size=self.kernel_size, padding=self.padding_size, bias=False)
-        self.conv2 = nn.Conv2d(16, 32, kernel_size=self.kernel_size, padding=self.padding_size, bias=False)
-        self.conv3 = nn.Conv2d(32, 64, kernel_size=self.kernel_size, padding=self.padding_size, bias=False)
-        self.conv4 = nn.Conv2d(64, 128, kernel_size=self.kernel_size, padding=self.padding_size, bias=False)
+        super(Kaneda, self).__init__()
+        fil_num = 16
+        self.conv1 = nn.Conv2d(1, fil_num, kernel_size=(3, 3), padding=1)
+        self.conv2 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
+        self.conv3 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
+        self.conv4 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
+        self.conv5 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
+        self.conv6 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
+        self.conv7 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
+        self.conv8 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
+        self.conv9 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
+        self.conv10 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
+        self.conv11 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
+        self.conv12 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
+
+        self.reduce_channels = nn.Conv2d(fil_num, 1, kernel_size=(3, 3), padding=1)  # Reduce channels to 1
+
+        self.avgpool = nn.AvgPool2d(kernel_size=(2, 2))
+
+        self.act = nn.ReLU()
+
+    def forward(self, x):
+        # normalise input
+        x = x / torch.max(x)
+        x = self.conv1(x)
+        la = self.act(self.conv2(x))
+        lb = self.act(self.conv3(la))
+        la = self.act(self.conv4(lb)) + la
+        lb = self.act(self.conv5(la))
         
-        # Decoder
-        self.conv5 = nn.Conv2d(128, 64, kernel_size=self.kernel_size, padding=self.padding_size, bias=False)
-        self.conv6 = nn.Conv2d(128, 64, kernel_size=self.kernel_size, padding=self.padding_size, bias=False)
-        self.conv7 = nn.Conv2d(64, 32, kernel_size=self.kernel_size, padding=self.padding_size, bias=False)
-        self.conv8 = nn.Conv2d(64, 32, kernel_size=self.kernel_size, padding=self.padding_size, bias=False)
-        self.conv9 = nn.Conv2d(32, 16, kernel_size=self.kernel_size, padding=self.padding_size, bias=False)
-        self.conv10 = nn.Conv2d(32, 16, kernel_size=self.kernel_size, padding=self.padding_size, bias=False)
-        self.conv11 = nn.Conv2d(16, 1, kernel_size=self.kernel_size, padding=self.padding_size, bias=False)
+        apa = self.avgpool(lb)
+        apb = self.act(self.conv6(apa))
+        apa = self.act(self.conv7(apb)) + apa
+        apb = self.act(self.conv8(apa))
+        apa = self.act(self.conv9(apb)) + apa
+        apb = self.act(self.conv10(apa))
+        apa = self.act(self.conv11(apb)) + apa
+        apb = self.act(self.conv12(apa))
+        apa = self.act(self.conv11(apb)) + apa
+        apb = self.act(self.conv12(apa))
+        apa = self.act(self.conv11(apb)) + apa
 
-        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-        self.downsample = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.activation1 = nn.PReLU()
-        self.activation2 = nn.PReLU()
-        self.activation3 = nn.PReLU()
-        self.activation4 = nn.PReLU()
-        self.activation5 = nn.PReLU()
-        self.activation6 = nn.PReLU()
-        self.activation7 = nn.PReLU()
-        self.activation8 = nn.PReLU()
-        self.activation9 = nn.PReLU()
-        self.activation10 = nn.PReLU()
-        self.activation11 = nn.PReLU()
+        upa = F.interpolate(apa, scale_factor=2, mode='bicubic') + lb
+        upb = self.act(self.conv5(upa))
+        upa = self.act(self.conv4(upb)) + upa
+        upb = self.act(self.conv3(upa))
+        upa = self.act(self.conv2(upb)) + upa
+        upb = self.act(self.conv1(self.reduce_channels(upa)))
+        upa = self.act(self.conv2(upb)) + upa
 
-    def forward(self, rhs):
-        # x, get inner without boundary
-        x = rhs[:, :, 1:-1, 1:-1]
-        x = F.normalize(x, dim=[2, 3])
+        out = self.reduce_channels(upa)
 
-        # Encoder
-        x1 = self.activation1(self.downsample(self.conv1(x)))
-        x2 = self.activation2(self.downsample(self.conv2(x1)))
-        x3 = self.activation3(self.downsample(self.conv3(x2)))
-        x4 = self.activation4(self.downsample(self.conv4(x3)))
-        # Decoder
-        x5 = self.activation5(self.upsample(self.conv5(x4)))
-        x6 = torch.cat([x5, x3], dim=1)
-        x6 = self.activation6(self.conv6(x6))
+        # set boundary to 0
+        out[:, :, 0, :] = 0
+        out[:, :, -1, :] = 0
+        out[:, :, :, 0] = 0
+        out[:, :, :, -1] = 0
 
-        x7 = self.activation7(self.upsample(self.conv7(x6)))
-        x8 = torch.cat([x7, x2], dim=1)
-        x8 = self.activation8(self.conv8(x8))
-
-        x9 = self.activation9(self.upsample(self.conv9(x8)))
-        x10 = torch.cat([x9, x1], dim=1)
-        x10 = self.activation10(self.conv10(x10))
-
-        x11 = self.upsample(self.conv11(x10))
-        x11 = self.activation11(x11)
-
-        # add zero boundaries
-        x11 = F.pad(x11, (1, 1, 1, 1), "constant", 0)
-
-        return x11
+        return out
     
 def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
     # grid-like to vector-like
@@ -93,75 +90,10 @@ def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
     # Take mean over the spatial dimensions and then mean across the batch
     alignment_loss = torch.mean(alignment_loss)
     
-    # Additionally, you might want to incorporate your existing loss term
-    loss_deep_learning = torch.sqrt(torch.mean((pred_error - true_error) ** 2))
-    
     # Total loss
     total_loss = alignment_loss
     
     return total_loss
-
-"""def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
-    dx2 = (1.0 / (grid_size_x-2)) ** 2
-    dy2 = (1.0 / (grid_size_y-2)) ** 2
-
-    # Reshape for batch operations
-    pred_error = pred_error.view(-1, grid_size_x, grid_size_y)
-    true_error = true_error.view(-1, grid_size_x, grid_size_y)
-    residual = residual.view(-1, grid_size_x, grid_size_y)
-
-    # Compute losses
-    loss_deep_learning = F.mse_loss(pred_error, true_error, reduction='none')
-
-    loss_simulation = torch.norm(
-        (residual[:, 1:-1, 1:-1] - (
-            (1/dx2) * (pred_error[:, 2:, 1:-1] - 2*pred_error[:, 1:-1, 1:-1] + pred_error[:, :-2, 1:-1]) +
-            (1/dy2) * (pred_error[:, 1:-1, 2:] - 2*pred_error[:, 1:-1, 1:-1] + pred_error[:, 1:-1, :-2])
-        )),
-        dim=[1, 2]
-    )
-
-    total_loss = torch.mean(loss_simulation)*torch.mean(loss_deep_learning)
-
-    return total_loss"""
-
-"""def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
-    dx2 = (1.0 / grid_size_x) ** 2
-    dy2 = (1.0 / grid_size_y) ** 2
-
-    # Reshape for batch operations
-    pred_error = pred_error.view(-1, grid_size_x, grid_size_y)
-    true_error = true_error.view(-1, grid_size_x, grid_size_y)
-    residual = residual.view(-1, grid_size_x, grid_size_y)
-
-    Asearch_vector = torch.zeros_like(pred_error)
-    # Calculate Asearch_vector for the entire batch
-    Asearch_vector[:, 1:-1, 1:-1] = (
-        (1/dx2) * (pred_error[:, 2:, 1:-1] - 2*pred_error[:, 1:-1, 1:-1] + pred_error[:, :-2, 1:-1]) +
-        (1/dy2) * (pred_error[:, 1:-1, 2:] - 2*pred_error[:, 1:-1, 1:-1] + pred_error[:, 1:-1, :-2])
-    )
-
-    # Compute alpha for the entire batch
-    alpha_top = torch.sum(pred_error.view(-1, grid_size_x*grid_size_y) * residual.view(-1, grid_size_x*grid_size_y))
-    alpha_bottom = torch.sum(pred_error.view(-1, grid_size_x*grid_size_y) * Asearch_vector.view(-1, grid_size_x*grid_size_y))
-    alpha = alpha_top / alpha_bottom
-
-    # Reduce grid-like to vector-like
-    Asearch_vector = Asearch_vector.view(-1, grid_size_x*grid_size_y)
-    residual = residual.view(-1, grid_size_x*grid_size_y)
-    alpha = alpha.view(-1, 1)
-
-    # copy alpha to the same shape as Asearch_vector
-    alpha = alpha.repeat(1, grid_size_x*grid_size_y)
-
-    # Compute losses
-    loss_simulation = torch.norm(
-        (residual - alpha*Asearch_vector)
-    ) / pred_error.shape[0]
-
-    total_loss = torch.mean(loss_simulation)
-
-    return total_loss"""
 
 if __name__ == "__main__":
     # random state 
@@ -179,13 +111,13 @@ if __name__ == "__main__":
         return torch.stack(data)
 
     # Load data
-    residual_data = load_data("ML_data/", "res", 1)
-    error_data = load_data("ML_data/", "e", 1)
+    residual_data = load_data("eigenvectors/", "b", 1)
+    error_data = load_data("eigenvectors/", "x", 1)
     # only first 100
     residual_data = residual_data
     error_data = error_data
 
-    augment_data = True
+    augment_data = False
 
     if augment_data:
         # Data augmentation - flip the data along the x-axis
@@ -231,7 +163,7 @@ if __name__ == "__main__":
     test_error_data = torch.stack(test_error_data)
 
 
-    model = Azulay()
+    model = Kaneda()
     model.to("cuda")
 
     # Define the optimizer
@@ -245,10 +177,10 @@ if __name__ == "__main__":
     writer = SummaryWriter('logs')
 
     # Define batch size
-    batch_size = 128
+    batch_size = 8
 
     # Train the model
-    num_epochs = 10
+    num_epochs = 100
     total_batches = len(train_residual_data) // batch_size
 
     for epoch in tqdm(range(num_epochs)):
@@ -293,7 +225,7 @@ if __name__ == "__main__":
     # Convert to Torchscript via Annotation
     model.eval()
     traced = torch.jit.trace(model, test_residual_data[0].unsqueeze(0))
-    traced.save("model_azulay.pt")
+    traced.save("model_eigenvectors.pt")
 
     # generate random tensor to test the model
     input_tensor = train_residual_data[0].unsqueeze(0)

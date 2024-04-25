@@ -15,65 +15,12 @@ void FluidSimulation::inferenceExp1() {
 
     auto output_acc = this->grid.output_ml.accessor<float,2>();
 
-    float maxCoeff = -std::numeric_limits<float>::infinity();
-    float minCoeff = std::numeric_limits<float>::infinity();
-    float maxCoeff2 = -std::numeric_limits<float>::infinity();
-    float minCoeff2 = std::numeric_limits<float>::infinity();
-
-    this->preconditioner.po.setZero();
-
-    // One jacobi smoother step for getting scaling values and ML inferece
     for (int i = 1; i < this->grid.imax + 1; i++) {
         for (int j = 1; j < this->grid.jmax + 1; j++) {
-            // Jacobi smooth
-            this->preconditioner.po(i, j) = (
-                (1.0/(-2.0*this->grid.dx2 - 2.0*this->grid.dy2)) // 1/Aii
-                *
-                (
-                    this->preconditioner.RHS(i,j)*this->grid.dx2dy2 - this->grid.dx2*(this->preconditioner.po(i+1,j) + this->preconditioner.po(i-1,j)) - this->grid.dy2*(this->preconditioner.po(i,j+1) + this->preconditioner.po(i,j-1))
-                )
-            );
-            if (this->preconditioner.po(i,j) > maxCoeff) {
-                maxCoeff = this->preconditioner.po(i,j);
-            }
-            if (this->preconditioner.po(i,j) < minCoeff) {
-                minCoeff = this->preconditioner.po(i,j);
-            }
-
             // ML inference
-            this->preconditioner.p(i,j) = output_acc[i][j];
-            if (this->preconditioner.p(i,j) > maxCoeff2) {
-                maxCoeff2 = this->preconditioner.p(i,j);
-            }
-            if (this->preconditioner.p(i,j) < minCoeff2) {
-                minCoeff2 = this->preconditioner.p(i,j);
-            }
+            this->grid.search_vector(i,j) = output_acc[i][j];
         }
     }
-
-    // scale the output of the deep learning model
-    for(int i = 1; i < this->grid.imax + 1; i++) {
-        for(int j = 1; j < this->grid.jmax + 1; j++) {
-            this->preconditioner.p(i,j) = (this->preconditioner.p(i,j) - minCoeff2)/(maxCoeff2 - minCoeff2)*(maxCoeff - minCoeff) + minCoeff;
-        }
-    }
-
-    for (int m = 0; m < 1; m++) {
-        // Jacobi smoother with relaxation factor (omega)
-        for (int i = 1; i < this->grid.imax + 1; i++) {
-            for (int j = 1; j < this->grid.jmax + 1; j++) {
-                this->preconditioner.p(i, j) = (
-                    (1.0/(-2.0*this->grid.dx2 - 2.0*this->grid.dy2)) // 1/Aii
-                    *
-                    (
-                        this->preconditioner.RHS(i,j)*this->grid.dx2dy2 - this->grid.dx2*(this->preconditioner.p(i+1,j) + this->preconditioner.p(i-1,j)) - this->grid.dy2*(this->preconditioner.p(i,j+1) + this->preconditioner.p(i,j-1))
-                    )
-                );
-                this->grid.search_vector(i,j) = this->preconditioner.p(i,j);
-            }
-        }
-    }
-
 
     /*std::string filename = "ml_" + std::to_string(this->n_cg) + ".dat";
     Kernel::saveMatrix(filename.c_str(), &this->preconditioner.p);
@@ -132,7 +79,7 @@ void FluidSimulation::solveWithML() {
         this->beta_top_cg= 0.0;
         this->res_norm = 0.0;
 
-        if (this->n_cg % 2 == 0) {
+        if (this->n_cg >= 0) {
             this->inferenceExp1();
             n_ml++;
         }
@@ -186,14 +133,25 @@ void FluidSimulation::solveWithML() {
         }
         this->alpha_cg = this->alpha_top_cg/this->alpha_bottom_cg;
 
-        // Update pressure and new residual
+        // Update pressure
         for (int i = 1; i < this->grid.imax + 1; i++) {
             for (int j = 1; j < this->grid.jmax + 1; j++) {
                 this->grid.p(i,j) += this->alpha_cg*p_list[n_cg](i,j);
-                this->grid.res(i,j) -= this->alpha_cg*this->grid.Asearch_vector(i,j);
-                this->preconditioner.RHS(i,j) = this->grid.res(i,j);
             }
         }
+
+        // New residual
+        for (int i = 1; i < this->grid.imax + 1; i++) {
+            for (int j = 1; j < this->grid.jmax + 1; j++) {
+                this->grid.res(i,j) = this->grid.RHS(i,j) - (
+                    (1/this->grid.dx2)*(this->grid.p(i+1,j) - 2*this->grid.p(i,j) + this->grid.p(i-1,j)) +
+                    (1/this->grid.dy2)*(this->grid.p(i,j+1) - 2*this->grid.p(i,j) + this->grid.p(i,j-1))
+                );
+            }
+        }
+
+        // Copy res to preconditioner RHS
+        this->preconditioner.RHS = this->grid.res;
 
         // Calculate norm of residual
         this->computeResidualNorm();
