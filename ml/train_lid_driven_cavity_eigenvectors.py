@@ -110,12 +110,17 @@ if __name__ == "__main__":
                 data.append(torch.tensor(loaded_data))
         return torch.stack(data)
 
-    # Load data
-    residual_data = load_data("eigenvectors/", "b", 1)
-    error_data = load_data("eigenvectors/", "x", 1)
-    # only first 100
-    residual_data = residual_data
-    error_data = error_data
+    # Load eigenvectors-based data
+    eigenvector_b = load_data("eigenvectors/", "b", 1)
+    eigenvector_x = load_data("eigenvectors/", "x", 1)
+
+    # Load simulation data
+    #simulation_b = load_data("ML_data/", "res", 1)
+    #simulation_x = load_data("ML_data/", "e", 1)
+
+    # Concat eigenvectors-based data with simulation data
+    residual_data = eigenvector_b
+    error_data = eigenvector_x
 
     augment_data = False
 
@@ -180,7 +185,7 @@ if __name__ == "__main__":
     batch_size = 8
 
     # Train the model
-    num_epochs = 100
+    num_epochs = 20
     total_batches = len(train_residual_data) // batch_size
 
     for epoch in tqdm(range(num_epochs)):

@@ -426,6 +426,11 @@ namespace CFD {
             solver_name = "ML";
             std::cout << "Solver: ML (" << this->grid.imax << "x" << this->grid.jmax << ")" << std::endl;
         }
+        else if (this->solver_type == SolverType::RICHARDSON) {
+            pressure_solver = &FluidSimulation::solveWithRichardson;
+            solver_name = "Richardson";
+            std::cout << "Solver: Richardson (" << this->grid.imax << "x" << this->grid.jmax << ")" << std::endl;
+        }
         else {
             throw std::invalid_argument("Invalid solver type");
         }

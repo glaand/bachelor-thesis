@@ -37,7 +37,7 @@ for i in range(eigenvectors.shape[1]):
 
 # Augment data by generating linear combinations of eigenvectors
 b_vectors = eigenvectors_mapped
-for _ in range(2):
+for _ in range(1):
     for i in range(len(eigenvectors_mapped)):
         # generate random linear combination of eigenvectors
         b_vector = np.zeros_like(eigenvectors_mapped[i])

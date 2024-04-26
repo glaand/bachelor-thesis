@@ -38,7 +38,8 @@ namespace CFD {
         MGPCG,
         MGPSD,
         STEEPEST_DESCENT,
-        ML
+        ML,
+        RICHARDSON
     };
     SolverType convertSolverType(const std::string& solver);
 
@@ -165,6 +166,7 @@ namespace CFD {
             void solveWithSteepestDescent();
             void solveWithMultigridPSD();
             void solveWithML();
+            void solveWithRichardson();
             void computeResidual();
             void computeResidualNorm();
             void computeU();

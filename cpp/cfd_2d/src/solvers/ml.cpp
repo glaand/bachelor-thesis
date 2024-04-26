@@ -133,20 +133,11 @@ void FluidSimulation::solveWithML() {
         }
         this->alpha_cg = this->alpha_top_cg/this->alpha_bottom_cg;
 
-        // Update pressure
+        // Update pressure and new residual
         for (int i = 1; i < this->grid.imax + 1; i++) {
             for (int j = 1; j < this->grid.jmax + 1; j++) {
                 this->grid.p(i,j) += this->alpha_cg*p_list[n_cg](i,j);
-            }
-        }
-
-        // New residual
-        for (int i = 1; i < this->grid.imax + 1; i++) {
-            for (int j = 1; j < this->grid.jmax + 1; j++) {
-                this->grid.res(i,j) = this->grid.RHS(i,j) - (
-                    (1/this->grid.dx2)*(this->grid.p(i+1,j) - 2*this->grid.p(i,j) + this->grid.p(i-1,j)) +
-                    (1/this->grid.dy2)*(this->grid.p(i,j+1) - 2*this->grid.p(i,j) + this->grid.p(i,j-1))
-                );
+                this->grid.res(i,j) -= this->alpha_cg*this->grid.Asearch_vector(i,j);
             }
         }
 
