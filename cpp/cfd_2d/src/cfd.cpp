@@ -431,6 +431,12 @@ namespace CFD {
             solver_name = "Richardson";
             std::cout << "Solver: Richardson (" << this->grid.imax << "x" << this->grid.jmax << ")" << std::endl;
         }
+        else if (this->solver_type == SolverType::DCDM) {
+            pressure_solver = &FluidSimulation::solveWithDCDM;
+            loadTorchScriptModel(this->ml_model_path);
+            solver_name = "DCDM";
+            std::cout << "Solver: DCDM (" << this->grid.imax << "x" << this->grid.jmax << ")" << std::endl;
+        }
         else {
             throw std::invalid_argument("Invalid solver type");
         }

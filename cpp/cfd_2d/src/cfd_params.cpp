@@ -33,6 +33,9 @@ SolverType CFD::convertSolverType(const std::string& solver) {
     else if (solver == "richardson") {
         return SolverType::RICHARDSON;
     }
+    else if (solver == "dcdm") {
+        return SolverType::DCDM;
+    }
     else {
         throw std::invalid_argument("Invalid solver type");
     }

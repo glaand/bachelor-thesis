@@ -23,7 +23,17 @@ void FluidSimulation::solveWithRichardson() {
             }
         }
 
-        this->computeResidual();
+        // Compute residual
+        for (int j = 1; j < this->grid.jmax + 1; j++) {
+            for (int i = 1; i < this->grid.imax + 1; i++) {
+                this->grid.res(i,j) = this->grid.RHS(i,j) - (
+                    (1/this->grid.dx2)*(this->grid.p(i+1,j) - 2*this->grid.p(i,j) + this->grid.p(i-1,j)) +
+                    (1/this->grid.dy2)*(this->grid.p(i,j+1) - 2*this->grid.p(i,j) + this->grid.p(i,j-1))
+                );
+            }
+        }
+
+        this->computeResidualNorm();
         this->res_norm_over_it_with_pressure_solver(this->it) = this->res_norm;
         this->it++;
         this->n_cg++;

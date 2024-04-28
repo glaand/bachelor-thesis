@@ -19,6 +19,7 @@ set(CFD_2D_SOURCES
     src/solvers/mgpsd.cpp
     src/solvers/ml.cpp
     src/solvers/richardson.cpp
+    src/solvers/dcdm.cpp
 )
 
 # Compile the CFD library
