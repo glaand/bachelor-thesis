@@ -13,6 +13,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 from tqdm import tqdm
 import glob
 import os
+from torch.utils.data import DataLoader, Subset
 
 class Kaneda(nn.Module):
     def __init__(self):
@@ -148,24 +149,24 @@ if __name__ == "__main__":
     error_data = error_data.view(error_data.shape[0], 1, grid_size_x, grid_size_y).float()
     error_data = error_data.to("cuda")
 
-    # Split data into train and test sets
+    # Split data into train, validation, and test sets
+    # Define batch size
+    batch_size = 4
     total_samples = residual_data.shape[0]
     train_size = int(0.8 * total_samples)
-    test_size = total_samples - train_size
+    val_size = int(0.1 * total_samples)
+    test_size = total_samples - train_size - val_size
 
-    train_data, test_data = random_split(
+    train_data, val_data, test_data = random_split(
         list(zip(residual_data, error_data)), 
-        [train_size, test_size],
+        [train_size, val_size, test_size],
         generator=torch.Generator().manual_seed(42)
     )
 
-    train_residual_data, train_error_data = zip(*train_data)
-    test_residual_data, test_error_data = zip(*test_data)
-
-    train_residual_data = torch.stack(train_residual_data)
-    train_error_data = torch.stack(train_error_data)
-    test_residual_data = torch.stack(test_residual_data)
-    test_error_data = torch.stack(test_error_data)
+    # Convert to DataLoader for easier handling
+    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_data, batch_size=batch_size, shuffle=False)
+    test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False)
 
 
     model = Kaneda()
@@ -176,56 +177,82 @@ if __name__ == "__main__":
 
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, factor=0.5, verbose=True)
 
-    # Set the model in training mode
-    model.train()
-
     writer = SummaryWriter('logs')
-
-    # Define batch size
-    batch_size = 4
 
     # Train the model
     num_epochs = 1000
-    total_batches = len(train_residual_data) // batch_size
 
+    epoch_train_losses = []
+    epoch_val_losses = []
+    
+    # Train the model
     for epoch in tqdm(range(num_epochs)):
-        # Shuffle the training data
-        shuffled_indices = torch.randperm(len(train_residual_data))
-        train_residual_data_shuffled = train_residual_data[shuffled_indices]
-        train_error_data_shuffled = train_error_data[shuffled_indices]
-        
-        for i in range(total_batches):
-            # Get the current batch
-            batch_residual_data = train_residual_data_shuffled[i * batch_size: (i + 1) * batch_size].to("cuda")
-            batch_error_data = train_error_data_shuffled[i * batch_size: (i + 1) * batch_size].to("cuda")
-
-            # Forward pass
+        # Training loop
+        model.train()
+        train_losses = []
+        for batch_residual_data, batch_error_data in train_loader:
+            # Forward pass, loss calculation, backward pass, and optimization
             predicted_error_vector = model(batch_residual_data)
-
-            # Calculate the loss
             loss = custom_loss(predicted_error_vector, batch_error_data, batch_residual_data, grid_size_x, grid_size_y)
-
-            # Backward pass and optimization
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-            writer.add_scalar('Loss/train', loss.item(), epoch * total_batches + i)
-            writer.add_scalar('Learning Rate', optimizer.param_groups[0]['lr'], epoch * total_batches + i)
+            train_losses.append(loss)
 
-            print(f"Epoch {epoch+1}/{num_epochs}, Batch {i+1}/{total_batches}, Train Loss: {loss.item()}")
+        # Calculate average training loss for the epoch
+        avg_train_loss = torch.stack(train_losses).mean()
+        epoch_train_losses.append(avg_train_loss)
+
+        # Validation loop
+        model.eval()
+        with torch.no_grad():
+            val_losses = []
+            for batch_residual_data, batch_error_data in val_loader:
+                # Forward pass and loss calculation
+                # Append validation loss to val_losses list
+                predicted_error_vector = model(batch_residual_data)
+                val_loss = custom_loss(predicted_error_vector, batch_error_data, batch_residual_data, grid_size_x, grid_size_y)
+                val_losses.append(val_loss)
+
+        # Calculate average validation loss for the epoch
+        avg_val_loss = torch.stack(val_losses).mean()
+        epoch_val_losses.append(avg_val_loss)
 
         # Update the learning rate scheduler
-        scheduler.step(loss)
+        scheduler.step(avg_train_loss)
+
+        # Print or log training and validation loss
+        print(f"Epoch {epoch+1}/{num_epochs}, Train Loss: {avg_train_loss.item()}, Val Loss: {avg_val_loss.item()}")
+
 
     writer.close()
 
     # Evaluate the model on the test set
     model.eval()
+    test_losses = []
     with torch.no_grad():
-        predicted_error_vector = model(test_residual_data)
-        test_loss = custom_loss(predicted_error_vector, test_error_data, test_residual_data, grid_size_x, grid_size_y)
-        print(f"Test Loss: {test_loss}")
+        for test_residual_data, test_error_data in test_loader:
+            predicted_error_vector = model(test_residual_data)
+            test_loss = custom_loss(predicted_error_vector, test_error_data, test_residual_data, grid_size_x, grid_size_y)
+            print(f"Test Loss: {test_loss}")
+            test_losses.append(test_loss)
+
+    avg_test_loss = torch.stack(test_losses).mean()
+    print(f"Average Test Loss: {avg_test_loss.item()}")
+
+    # plot train / val / test loss
+    epoch_train_losses = [x.item() for x in epoch_train_losses]
+    epoch_val_losses = [x.item() for x in epoch_val_losses]
+
+    import matplotlib.pyplot as plt
+    plt.plot(epoch_train_losses, label='train loss')
+    plt.plot(epoch_val_losses, label='val loss')
+    # add labels
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.savefig("eigenvectors_loss.pdf", format="pdf")
 
     # Convert to Torchscript via Annotation
     model.eval()
@@ -233,7 +260,7 @@ if __name__ == "__main__":
     traced.save("model_eigenvectors.pt")
 
     # generate random tensor to test the model
-    input_tensor = train_residual_data[0].unsqueeze(0)
+    input_tensor = train_loader.dataset[0][0].unsqueeze(0).to("cuda")
     output = traced(input_tensor)
     # save output to e.dat
     output = output.squeeze(0).squeeze(0).cpu().detach().numpy()
