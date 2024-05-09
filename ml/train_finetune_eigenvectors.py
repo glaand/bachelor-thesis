@@ -14,86 +14,7 @@ from tqdm import tqdm
 import glob
 import os
 
-class Kaneda(nn.Module):
-    def __init__(self):
-        super(Kaneda, self).__init__()
-        fil_num = 16
-        self.conv1 = nn.Conv2d(1, fil_num, kernel_size=(3, 3), padding=1)
-        self.conv2 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
-        self.conv3 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
-        self.conv4 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
-        self.conv5 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
-        self.conv6 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
-        self.conv7 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
-        self.conv8 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
-        self.conv9 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
-        self.conv10 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
-        self.conv11 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
-        self.conv12 = nn.Conv2d(fil_num, fil_num, kernel_size=(3, 3), padding=1)
-
-        self.reduce_channels = nn.Conv2d(fil_num, 1, kernel_size=(3, 3), padding=1)  # Reduce channels to 1
-
-        self.avgpool = nn.AvgPool2d(kernel_size=(2, 2))
-
-        self.act = nn.ReLU()
-
-    def forward(self, x):
-        # normalise input
-        x = x / torch.max(x)
-        x = self.conv1(x)
-        la = self.act(self.conv2(x))
-        lb = self.act(self.conv3(la))
-        la = self.act(self.conv4(lb)) + la
-        lb = self.act(self.conv5(la))
-        
-        apa = self.avgpool(lb)
-        apb = self.act(self.conv6(apa))
-        apa = self.act(self.conv7(apb)) + apa
-        apb = self.act(self.conv8(apa))
-        apa = self.act(self.conv9(apb)) + apa
-        apb = self.act(self.conv10(apa))
-        apa = self.act(self.conv11(apb)) + apa
-        apb = self.act(self.conv12(apa))
-        apa = self.act(self.conv11(apb)) + apa
-        apb = self.act(self.conv12(apa))
-        apa = self.act(self.conv11(apb)) + apa
-
-        upa = F.interpolate(apa, scale_factor=2, mode='bicubic') + lb
-        upb = self.act(self.conv5(upa))
-        upa = self.act(self.conv4(upb)) + upa
-        upb = self.act(self.conv3(upa))
-        upa = self.act(self.conv2(upb)) + upa
-        upb = self.act(self.conv1(self.reduce_channels(upa)))
-        upa = self.act(self.conv2(upb)) + upa
-
-        out = self.reduce_channels(upa)
-
-        # set boundary to 0
-        out[:, :, 0, :] = 0
-        out[:, :, -1, :] = 0
-        out[:, :, :, 0] = 0
-        out[:, :, :, -1] = 0
-
-        return out
-    
-def custom_loss(pred_error, true_error, residual, grid_size_x, grid_size_y):
-    # grid-like to vector-like
-    true_error = true_error.view(-1, grid_size_x*grid_size_y)
-    pred_error = pred_error.view(-1, grid_size_x*grid_size_y)
-    
-    # Compute cosine similarity
-    cosine_similarity = F.cosine_similarity(pred_error, true_error, dim=1)  # Along the batch dimension
-    
-    # Compute the distance from 1.0
-    alignment_loss = 1.0 - cosine_similarity
-    
-    # Take mean over the spatial dimensions and then mean across the batch
-    alignment_loss = torch.mean(alignment_loss)
-    
-    # Total loss
-    total_loss = alignment_loss
-    
-    return total_loss
+from train_lid_driven_cavity_eigenvectors import Kaneda, custom_loss
 
 if __name__ == "__main__":
     # random state 
@@ -111,16 +32,16 @@ if __name__ == "__main__":
         return torch.stack(data)
 
     # Load eigenvectors-based data
-    eigenvector_b = load_data("eigenvectors/", "b", 10)
-    eigenvector_x = load_data("eigenvectors/", "x", 10)
+    # eigenvector_b = load_data("eigenvectors/", "b", 1)
+    # eigenvector_x = load_data("eigenvectors/", "x", 1)
 
     # Load simulation data
-    #simulation_b = load_data("ML_data/", "res", 1)
-    #simulation_x = load_data("ML_data/", "e", 1)
+    simulation_b = load_data("ML_data/", "res", 100)
+    simulation_x = load_data("ML_data/", "e", 100)
 
     # Concat eigenvectors-based data with simulation data
-    residual_data = eigenvector_b
-    error_data = eigenvector_x
+    residual_data = simulation_b
+    error_data = simulation_x
 
     augment_data = False
 
@@ -169,7 +90,16 @@ if __name__ == "__main__":
 
 
     model = Kaneda()
+    # load jit trace model
+    model = torch.jit.load("model_eigenvectors.pt")
     model.to("cuda")
+
+    # freeze all layers
+    for param in model.parameters():
+        param.requires_grad = False
+
+    model.conv12.weight.requires_grad = True
+    model.conv12.bias.requires_grad = True
 
     # Define the optimizer
     optimizer = optim.Adam(model.parameters(), lr=1e-2, weight_decay=1e-5, amsgrad=True)
@@ -182,10 +112,10 @@ if __name__ == "__main__":
     writer = SummaryWriter('logs')
 
     # Define batch size
-    batch_size = 4
+    batch_size = 8
 
     # Train the model
-    num_epochs = 1000
+    num_epochs = 20
     total_batches = len(train_residual_data) // batch_size
 
     for epoch in tqdm(range(num_epochs)):
@@ -230,7 +160,7 @@ if __name__ == "__main__":
     # Convert to Torchscript via Annotation
     model.eval()
     traced = torch.jit.trace(model, test_residual_data[0].unsqueeze(0))
-    traced.save("model_eigenvectors.pt")
+    traced.save("finetuned_eigenvectors.pt")
 
     # generate random tensor to test the model
     input_tensor = train_residual_data[0].unsqueeze(0)

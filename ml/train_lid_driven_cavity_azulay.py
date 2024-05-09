@@ -179,8 +179,8 @@ if __name__ == "__main__":
         return torch.stack(data)
 
     # Load data
-    residual_data = load_data("ML_data/", "res", 1)
-    error_data = load_data("ML_data/", "e", 1)
+    residual_data = load_data("eigenvectors/", "b", 1)
+    error_data = load_data("eigenvectors/", "x", 1)
     # only first 100
     residual_data = residual_data
     error_data = error_data
@@ -245,10 +245,10 @@ if __name__ == "__main__":
     writer = SummaryWriter('logs')
 
     # Define batch size
-    batch_size = 128
+    batch_size = 16
 
     # Train the model
-    num_epochs = 10
+    num_epochs = 100
     total_batches = len(train_residual_data) // batch_size
 
     for epoch in tqdm(range(num_epochs)):
