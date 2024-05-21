@@ -112,8 +112,8 @@ if __name__ == "__main__":
         return torch.stack(data)
 
     # Load data
-    residual_data = load_data("ML_data/", "res", 1)
-    error_data = load_data("ML_data/", "e", 1)
+    residual_data = load_data("ML_data/", "res", 10)
+    error_data = load_data("ML_data/", "e", 10)
 
     print("Residual data shape:", residual_data.shape)
     print("Error data shape:", error_data.shape)
@@ -129,7 +129,7 @@ if __name__ == "__main__":
 
     # Split data into train, validation, and test sets
     # Define batch size
-    batch_size = 4
+    batch_size = 64
     total_samples = residual_data.shape[0]
     train_size = int(0.8 * total_samples)
     val_size = int(0.1 * total_samples)
@@ -158,7 +158,7 @@ if __name__ == "__main__":
     writer = SummaryWriter('logs')
 
     # Train the model
-    num_epochs = 10
+    num_epochs = 1000
 
     epoch_train_losses = []
     epoch_val_losses = []
@@ -228,6 +228,7 @@ if __name__ == "__main__":
     plt.plot(epoch_val_losses, label='val loss')
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
+    plt.yscale("log")
     plt.legend()
     plt.savefig("kaneda_loss.pdf", format="pdf")
 

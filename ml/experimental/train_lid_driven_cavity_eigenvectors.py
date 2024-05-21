@@ -112,8 +112,8 @@ if __name__ == "__main__":
         return torch.stack(data)
 
     # Load eigenvectors-based data
-    eigenvector_b = load_data("eigenvectors/", "b", 10)
-    eigenvector_x = load_data("eigenvectors/", "x", 10)
+    eigenvector_b = load_data("eigenvectors/", "b", 1)
+    eigenvector_x = load_data("eigenvectors/", "x", 1)
 
     # Load simulation data
     #simulation_b = load_data("ML_data/", "res", 1)
@@ -151,7 +151,7 @@ if __name__ == "__main__":
 
     # Split data into train, validation, and test sets
     # Define batch size
-    batch_size = 4
+    batch_size = 64
     total_samples = residual_data.shape[0]
     train_size = int(0.8 * total_samples)
     val_size = int(0.1 * total_samples)
@@ -251,6 +251,7 @@ if __name__ == "__main__":
     # add labels
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
+    plt.yscale("log")
     plt.legend()
     plt.savefig("eigenvectors_loss.pdf", format="pdf")
 
