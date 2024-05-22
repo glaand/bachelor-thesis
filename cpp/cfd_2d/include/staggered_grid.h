@@ -42,8 +42,8 @@ namespace CFD {
             dy2 = dy * dy;
             dx2dy2 = dx2 * dy2;
 
-            input_ml = torch::zeros({jmax+2, imax+2}, torch::TensorOptions().dtype(torch::kFloat));
-            output_ml = torch::zeros({jmax+2, imax+2}, torch::TensorOptions().dtype(torch::kFloat));
+            input_ml = torch::zeros({imax+2, jmax+2}, torch::TensorOptions().dtype(torch::kFloat));
+            output_ml = torch::zeros({imax+2, jmax+2}, torch::TensorOptions().dtype(torch::kFloat));
         }
         float findMaxAbsoluteU() const;
         float findMaxAbsoluteV() const;

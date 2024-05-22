@@ -48,7 +48,7 @@ void FluidSimulation::solveWithDCDM() {
         if (this->n_cg >= 0) {
             for(int i = 1; i < this->grid.imax + 1; i++) {
                 for(int j = 1; j < this->grid.jmax + 1; j++) {
-                    this->grid.input_ml[j][i] = this->preconditioner.RHS(j,i);
+                    this->grid.input_ml[i][j] = this->preconditioner.RHS(i,j);
                 }
             }
             this->grid.output_ml = this->model.forward({ this->grid.input_ml.to(torch::kCUDA).unsqueeze(0).unsqueeze(0) }).toTensor().to(torch::kCPU).squeeze(0).squeeze(0);
