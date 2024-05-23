@@ -31,7 +31,25 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -allow-unsupported-compiler")
 list(APPEND CMAKE_PREFIX_PATH "$ENV{HOME}/miniconda3/envs/bachelor-thesis/lib/python3.11/site-packages/torch/share/cmake/Torch")
 set(Torch_DIR "$ENV{HOME}/miniconda3/envs/bachelor-thesis/lib/python3.11/site-packages/torch")
 set(CMAKE_CUDA_ARCHITECTURES "native")
-set(CMAKE_CUDA_COMPILER /usr/local/cuda-12.3/bin/nvcc)
+
+# Function to get hostname
+function(get_hostname result)
+    execute_process(
+        COMMAND hostname
+        OUTPUT_VARIABLE ${result}
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+endfunction()
+
+# Get hostname
+get_hostname(HOSTNAME)
+
+# Set CUDA compiler based on hostname
+if (HOSTNAME STREQUAL "mercury")
+    set(CMAKE_CUDA_COMPILER "/usr/local/cuda-12.4/bin/nvcc")
+else()
+    set(CMAKE_CUDA_COMPILER "/usr/local/cuda-12.3/bin/nvcc")
+endif()
 
 # VTK
 set(VTK_GROUP_ENABLE_StandAlone DONT_WANT)
