@@ -1,6 +1,11 @@
 import numpy as np
 import os
 import shutil
+import argparse
+
+parser = argparse.ArgumentParser(description='Generate eigenvectors data')
+parser.add_argument('--frequency', type=str, choices=['low', 'high', 'all'], default='all', help='Frequency of eigenvectors')
+args = parser.parse_args()
 
 grid_size_x = 34
 grid_size_y = 34
@@ -36,7 +41,16 @@ for i in range(eigenvectors.shape[1]):
 
 
 # Augment data by generating linear combinations of eigenvectors
+directory = '../data/eigenvectors_data'
+if args.frequency == 'low':
+    eigenvectors_mapped = eigenvectors_mapped[:len(eigenvectors_mapped)//2]
+    directory += '_low'
+elif args.frequency == 'high':
+    eigenvectors_mapped = eigenvectors_mapped[len(eigenvectors_mapped)//2:]
+    directory += '_high'
+
 b_vectors = eigenvectors_mapped
+
 for _ in range(1):
     for i in range(len(eigenvectors_mapped)):
         # generate random linear combination of eigenvectors
@@ -47,7 +61,6 @@ for _ in range(1):
 
 
 # delete directory if it exists
-directory = 'eigenvectors'
 if os.path.exists(directory):
     shutil.rmtree(directory)
 
