@@ -59,7 +59,9 @@ void FluidWithoutObstacles2D::setBoundaryConditionsP() {
     }
 }
 
-
+void FluidWithoutObstacles2D::run() {
+    FluidSimulation::run();
+}
 
 int main(int argc, char* argv[]) {
     FluidParams flow_params = FluidParams("lid_driven_cavity_2d", argc, argv);

@@ -14,6 +14,7 @@ namespace CFD {
             void setBoundaryConditionsP() override;
             void setBoundaryConditionsVelocityGeometry() override {};
             void setBoundaryConditionsPGeometry() override {};
+            void run();
     };
 
     class FluidWithObstacles2D : public FluidSimulation {
