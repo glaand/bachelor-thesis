@@ -14,6 +14,7 @@ import argparse
 from torch.utils.data import DataLoader, Subset
 
 from model import Model
+from gauss_fourier import GaussianFourierFeatureTransform
 from loss import loss_cosine_similarity, loss_mse, loss_rmse
 
 def load_data(folder_path, prefix, skip=1):
@@ -34,6 +35,7 @@ if __name__ == "__main__":
     parser.add_argument('--epochs', type=int, default=100, help='Number of epochs to train')
     parser.add_argument('--skip_files', type=int, default=1, help='Number of files to skip while loading data')
     parser.add_argument('--batch_size', type=int, default=64, help='Batch size for training')
+    parser.add_argument('--model', type=str, default='standard', help='Model to use for training', choices=['standard', 'fourier'])
     
     args = parser.parse_args()
 
@@ -71,6 +73,12 @@ if __name__ == "__main__":
     residual_data = residual_data.to("cuda")
     error_data = error_data.view(error_data.shape[0], 1, grid_size_x, grid_size_y).float()
     error_data = error_data.to("cuda")
+
+    if args.model == 'fourier':
+        # Forward pass, loss calculation, backward pass, and optimization
+        x = GaussianFourierFeatureTransform(1, 1, 10).to("cuda")(residual_data)
+        # take first channel
+        residual_data = x[:, 0, :, :].unsqueeze(1)
 
     # Split data into train, validation, and test sets
     # Define batch size
@@ -122,7 +130,6 @@ if __name__ == "__main__":
         model.train()
         train_losses = []
         for batch_residual_data, batch_error_data in train_loader:
-            # Forward pass, loss calculation, backward pass, and optimization
             predicted_error_vector = model(batch_residual_data)
             loss = loss_fn(predicted_error_vector, batch_error_data, batch_residual_data, grid_size_x, grid_size_y)
             optimizer.zero_grad()

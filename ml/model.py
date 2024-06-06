@@ -27,7 +27,7 @@ class Model(nn.Module):
 
     def forward(self, x):
         # normalise input
-        x = x / torch.max(x)
+        x = x / (torch.max(x) + 1e-8)
         x = self.conv1(x)
         la = self.act(self.conv2(x))
         lb = self.act(self.conv3(la))
