@@ -63,6 +63,7 @@ FluidParams::FluidParams(std::string name, int argc, char* argv[])
     this->argument_parser.add_argument("--num_sweeps").help("Number of sweeps for multigrid").default_value(this->num_sweeps).action([](const std::string& value) { return std::stof(value); });
     this->argument_parser.add_argument("--ml_model_path").help("Path to ML model").default_value(this->ml_model_path).action([](const std::string& value) { return value; });
     this->argument_parser.add_argument("--safety_factor").help("Safety factor for ML").default_value(this->safety_factor).action([](const std::string& value) { return std::stof(value); });
+    this->argument_parser.add_argument("--radius").help("Radius for obstacle").default_value(this->radius).action([](const std::string& value) { return std::stof(value); });
 
 
     try {
@@ -93,4 +94,5 @@ FluidParams::FluidParams(std::string name, int argc, char* argv[])
     this->num_sweeps = this->argument_parser.get<float>("--num_sweeps");
     this->ml_model_path = this->argument_parser.get<std::string>("--ml_model_path");
     this->safety_factor = this->argument_parser.get<float>("--safety_factor");
+    this->radius = this->argument_parser.get<float>("--radius");
 }

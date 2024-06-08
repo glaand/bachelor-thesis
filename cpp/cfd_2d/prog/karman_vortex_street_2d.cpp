@@ -7,7 +7,7 @@ void FluidWithObstacles2D::setBoundaryConditionsU() {
     // Inflow and outflow at left and right boundary
     for (int j = 0; j < this->grid.jmax + 3; j++) {
         // Inflow at left boundary (Left wall)
-        this->grid.u(0, j) = 1.0;
+        this->grid.u(0, j) = 1.5;
         // Outflow at right boundary (Right wall)
         this->grid.u(this->grid.imax + 1, j) = this->grid.u(this->grid.imax, j);
     }
@@ -52,44 +52,44 @@ void FluidWithObstacles2D::setBoundaryConditionsP() {
 
 void FluidWithObstacles2D::run() {
     // Manage Flag Field with Bitmasks
-    // Square in the middle with fifth of the size of the domain
-    int width = floor(this->grid.jmax / 8.0);
-    int distanceTop = floor((this->grid.jmax - width) / 2.0);
-    int distanceBottom = distanceTop + width;
-    int distanceLeft = distanceTop;
-    int distanceRight = distanceBottom;
+    // Circle with a radius of one-fifth of the domain's width, positioned one-fifth of the width from the left
+    int radius = floor(this->grid.jmax / this->radius);
+    int centerY = floor(this->grid.jmax / 2.0); // Centered vertically
+    int centerX = centerY; // One-fifth of the width from the left
 
     for (int i = 1; i < this->grid.imax + 1; i++) {
         for (int j = 1; j < this->grid.jmax + 1; j++) {
 
-            // Check if cell is inside the square
-            if (i >= distanceLeft && i <= distanceRight && j >= distanceTop && j <= distanceBottom) {
-                // Inside the square
+            // Check if cell is inside the circle
+            if ((i - centerX) * (i - centerX) + (j - centerY) * (j - centerY) <= radius * radius) {
+                // Inside the circle
                 this->grid.flag_field(i, j) = FlagFieldMask::CELL_OBSTACLE;
 
-                // Top Layer of the square
-                if (j == distanceTop) {
+                // Top Layer of the circle
+                if ((i - centerX) * (i - centerX) + (j - (centerY - radius)) * (j - (centerY - radius)) <= 1) {
                     // South neighbor
                     this->grid.flag_field(i, j) |= FlagFieldMask::FLUID_SOUTH;
                 }
-                if (j == distanceBottom) {
+                if ((i - centerX) * (i - centerX) + (j - (centerY + radius)) * (j - (centerY + radius)) <= 1) {
                     // North neighbor
                     this->grid.flag_field(i, j) |= FlagFieldMask::FLUID_NORTH;
                 }
-                if (i == distanceLeft) {
+                if ((i - (centerX - radius)) * (i - (centerX - radius)) + (j - centerY) * (j - centerY) <= 1) {
                     // West neighbor
                     this->grid.flag_field(i, j) |= FlagFieldMask::FLUID_WEST;
                 }
-                if (i == distanceRight) {
+                if ((i - (centerX + radius)) * (i - (centerX + radius)) + (j - centerY) * (j - centerY) <= 1) {
                     // East neighbor
                     this->grid.flag_field(i, j) |= FlagFieldMask::FLUID_EAST;
-                } 
+                }
             } else {
                 // Fluid cells have fluid neighbors
                 this->grid.flag_field(i, j) = FlagFieldMask::CELL_FLUID;
             }
         }
     }
+
+
 
     /*// loop through flag field and print with std::bitset
     for (int i = 0; i < this->grid.imax + 2; i++) {

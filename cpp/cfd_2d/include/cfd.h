@@ -66,6 +66,7 @@ namespace CFD {
             SolverType solver_type = SolverType::JACOBI;
             std::string ml_model_path = "";
             float safety_factor = 1e-6;
+            float radius = 10.0;
 
             argparse::ArgumentParser argument_parser;
     };
@@ -100,6 +101,7 @@ namespace CFD {
                 ml_model_path = params.ml_model_path;
                 maxiterations_cg = imax*jmax;
                 safety_factor = params.safety_factor;
+                radius = params.radius;
             }
             int imax;
             int jmax;
@@ -142,6 +144,9 @@ namespace CFD {
             float alpha_bottom_cg = 0.0;
             float beta_cg = 0.0;
             float beta_top_cg = 0.0;
+
+            // Karman Vortex Street components
+            float radius;
 
             // Multigrid components
             MultigridHierarchy *multigrid_hierarchy;
