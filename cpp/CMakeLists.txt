@@ -46,7 +46,7 @@ get_hostname(HOSTNAME)
 
 # Set CUDA compiler based on hostname
 if (HOSTNAME STREQUAL "mercury")
-    set(CMAKE_CUDA_COMPILER "/usr/local/cuda-12.4/bin/nvcc")
+    set(CMAKE_CUDA_COMPILER "/usr/local/cuda-12.5/bin/nvcc")
 else()
     set(CMAKE_CUDA_COMPILER "/usr/local/cuda-12.3/bin/nvcc")
 endif()
