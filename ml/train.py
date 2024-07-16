@@ -13,9 +13,14 @@ import os
 import argparse
 from torch.utils.data import DataLoader, Subset
 
+from sklearn.decomposition import PCA
+
 from model import Model
+from model_fourier import Model as FourierModel
+from model_nobias import Model as NoBiasModel
+from model_azulay import Model as AzulayModel
 from gauss_fourier import GaussianFourierFeatureTransform
-from loss import loss_cosine_similarity, loss_mse, loss_rmse
+from loss import loss_cosine_similarity, loss_mse, loss_rmse, loss_huber
 
 def load_data(folder_path, prefix, skip=1):
     print(f"Skipping every {skip} files")
@@ -28,14 +33,54 @@ def load_data(folder_path, prefix, skip=1):
             data.append(torch.tensor(loaded_data))
     return torch.stack(data)
 
+# Generate inverse
+grid_size_x = 34
+grid_size_y = 34
+dx = 1 / (grid_size_x)
+dy = 1 / (grid_size_y)
+dx2 = dx ** 2
+dy2 = dy ** 2
+
+# generate Matrix A which is the discretized Laplacian in 2D
+A = np.zeros((grid_size_x * grid_size_y, grid_size_x * grid_size_y))
+for i in range(grid_size_x):
+    for j in range(grid_size_y):
+        row = i * grid_size_y + j
+        A[row, row] = -2 * (1 / dx2 + 1 / dy2)
+        if i > 0:
+            A[row, row - grid_size_y] = 1 / dx2
+        if i < grid_size_x - 1:
+            A[row, row + grid_size_y] = 1 / dx2
+        if j > 0:
+            A[row, row - 1] = 1 / dy2
+        if j < grid_size_y - 1:
+            A[row, row + 1] = 1 / dy2
+
+A_inverse = np.linalg.inv(A)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Training configuration')
-    parser.add_argument('--data_type', type=str, choices=['simulation', 'eigenvectors', 'eigenvectors_low', 'eigenvectors_high', 'simulation_low'], required=True, help='Type of data to use: simulation or eigenvectors')
-    parser.add_argument('--loss_function', type=str, choices=['cosine_similarity', 'mse', 'rmse'], default='cosine_similarity', help='Loss function to use')
+    parser.add_argument('--data_type', type=str, choices=['simulation', 'eigenvectors', 'eigenvectors_low', 'eigenvectors_high', 'simulation_low', 'pressure'], required=True, help='Type of data to use: simulation or eigenvectors')
+    parser.add_argument('--loss_function', type=str, choices=['cosine_similarity', 'mse', 'rmse', 'huber'], default='cosine_similarity', help='Loss function to use')
     parser.add_argument('--epochs', type=int, default=100, help='Number of epochs to train')
     parser.add_argument('--skip_files', type=int, default=1, help='Number of files to skip while loading data')
     parser.add_argument('--batch_size', type=int, default=64, help='Batch size for training')
-    parser.add_argument('--model', type=str, default='standard', help='Model to use for training', choices=['standard', 'fourier'])
+    parser.add_argument('--model', type=str, default='standard', help='Model to use for training', choices=['standard', 'fourier', 'nobias','azulay'])
+    parser.add_argument('--act', type=str, default='relu', help='Activation function to use', choices=[
+        'elu', 
+        'gelu',
+        'leaky_relu',
+        'prelu',
+        'relu',
+        'selu',
+        'sigmoid',
+        'swish',
+        'softmax',
+        'softplus',
+        'tanh',
+        'mish',
+        'linear'
+    ])
     
     args = parser.parse_args()
 
@@ -54,6 +99,20 @@ if __name__ == "__main__":
     elif args.data_type == 'simulation_low':
         residual_data = load_data("data/simulation_data_low/", "res", args.skip_files)
         error_data = load_data("data/simulation_data_low/", "e", args.skip_files)
+    elif args.data_type == 'pressure':
+        residual_data = load_data("data/pressure_data/", "RHS", args.skip_files)
+        error_data = load_data("data/pressure_data/", "p", args.skip_files)
+    elif args.data_type == 'pca':
+        residual_data = load_data("data/simulation_data/", "res", args.skip_files)
+
+        eigenvectors_input= load_data("data/eigenvectors_data/", "b", 1)
+        residual_data = torch.cat([residual_data, eigenvectors_input], dim=0)
+
+        error_data = load_data("data/simulation_data/", "e", args.skip_files)
+        eigenvectors_output = load_data("data/eigenvectors_data/", "x", 1)
+
+        error_data = torch.cat([error_data, eigenvectors_output], dim=0)
+        
     else:
         residual_data = load_data("data/simulation_data/", "res", args.skip_files)
         error_data = load_data("data/simulation_data/", "e", args.skip_files)
@@ -75,10 +134,44 @@ if __name__ == "__main__":
     error_data = error_data.to("cuda")
 
     if args.model == 'fourier':
-        # Forward pass, loss calculation, backward pass, and optimization
-        x = GaussianFourierFeatureTransform(1, 1, 10).to("cuda")(residual_data)
-        # take first channel
-        residual_data = x[:, 0, :, :].unsqueeze(1)
+        model = FourierModel()
+        model.to("cuda")
+    elif args.model == 'nobias':
+        model = NoBiasModel()
+        model.to("cuda")
+    elif args.model == 'azulay':
+        model = AzulayModel()
+        model.to("cuda")
+    else :
+        model = Model()
+        model.to("cuda")
+
+    if args.act == 'elu':
+        model.act = nn.ELU()
+    elif args.act == 'gelu':
+        model.act = nn.GELU()
+    elif args.act == 'leaky_relu':
+        model.act = nn.LeakyReLU()
+    elif args.act == 'prelu':
+        model.act = nn.PReLU()
+    elif args.act == 'relu':
+        model.act = nn.ReLU()
+    elif args.act == 'selu':
+        model.act = nn.SELU()
+    elif args.act == 'sigmoid':
+        model.act = nn.Sigmoid()
+    elif args.act == 'swish':
+        model.act = nn.SiLU()
+    elif args.act == 'softmax':
+        model.act = nn.Softmax()
+    elif args.act == 'softplus':
+        model.act = nn.Softplus()
+    elif args.act == 'tanh':
+        model.act = nn.Tanh()
+    elif args.act == 'mish':
+        model.act = nn.Mish()
+    elif args.act == 'linear':
+        model.act = nn.Identity()
 
     # Split data into train, validation, and test sets
     # Define batch size
@@ -99,15 +192,14 @@ if __name__ == "__main__":
     val_loader = DataLoader(val_data, batch_size=batch_size, shuffle=False)
     test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False)
 
-    model = Model()
-    model.to("cuda")
-
     if args.loss_function == 'cosine_similarity':
         loss_fn = loss_cosine_similarity
     elif args.loss_function == 'mse':
         loss_fn = loss_mse
     elif args.loss_function == 'rmse':
         loss_fn = loss_rmse
+    elif args.loss_function == 'huber':
+        loss_fn = loss_huber
     else:
         raise ValueError("Invalid loss function")
 
@@ -165,7 +257,7 @@ if __name__ == "__main__":
 
     writer.close()
 
-    model_variation = f"{args.data_type}_{args.loss_function}_skip{args.skip_files}_batch{args.batch_size}"
+    model_variation = f"{args.data_type}_{args.loss_function}_skip{args.skip_files}_batch{args.batch_size}_model{args.model}_act{args.act}"
 
     # Evaluate the model on the test set
     model.eval()

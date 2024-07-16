@@ -355,10 +355,10 @@ namespace CFD {
         if (!std::filesystem::exists("ML_data")) {
             std::filesystem::create_directory("ML_data");
         }
-        std::string filename = "ML_data/res_" + std::to_string(this->current_file_number) + ".dat";
-        Kernel::saveMatrix(filename.c_str(), &this->preconditioner.RHS);
-        filename = "ML_data/e_" + std::to_string(this->current_file_number) + ".dat";
-        Kernel::saveMatrix(filename.c_str(), &this->preconditioner.p);
+        std::string filename = "ML_data/RHS_" + std::to_string(this->current_file_number) + ".dat";
+        Kernel::saveMatrix(filename.c_str(), &this->grid.RHS);
+        filename = "ML_data/p_" + std::to_string(this->current_file_number) + ".dat";
+        Kernel::saveMatrix(filename.c_str(), &this->grid.p);
         this->current_file_number++;
     }
 

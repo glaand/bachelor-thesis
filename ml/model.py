@@ -57,9 +57,9 @@ class Model(nn.Module):
         out = self.reduce_channels(upa)
 
         # set boundary to 0
-        out[:, :, 0, :] = 0
-        out[:, :, -1, :] = 0
-        out[:, :, :, 0] = 0
-        out[:, :, :, -1] = 0
+        # out[:, :, 0, :] = 0
+        # out[:, :, -1, :] = 0
+        # out[:, :, :, 0] = 0
+        # out[:, :, :, -1] = 0
 
         return out
