@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+from pytorch_msssim import ssim, ms_ssim, SSIM, MS_SSIM
 
 def loss_cosine_similarity(pred_error, true_error, residual, grid_size_x, grid_size_y):
     # grid-like to vector-like
@@ -48,5 +49,20 @@ def loss_huber(pred_error, true_error, residual, grid_size_x, grid_size_y):
     
     # Total loss
     total_loss = huber
+    
+    return total_loss
+
+def loss_ssim(pred_error, true_error, residual, grid_size_x, grid_size_y):
+    # Compute the mean structural similarity index
+
+    # Scale pred_error to range of true_error
+    total_loss = 0
+    for i in range(pred_error.shape[0]):
+        left = pred_error[i].cpu().detach().unsqueeze(0)
+        right = true_error[i].cpu().detach().unsqueeze(0)
+        print(left.shape, right.shape)
+        total_loss += 1 - ssim(left, right, data_range=right.max()-right.min())
+
+    total_loss = total_loss/pred_error.shape[0]
     
     return total_loss

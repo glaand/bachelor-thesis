@@ -20,7 +20,7 @@ from model_fourier import Model as FourierModel
 from model_nobias import Model as NoBiasModel
 from model_azulay import Model as AzulayModel
 from gauss_fourier import GaussianFourierFeatureTransform
-from loss import loss_cosine_similarity, loss_mse, loss_rmse, loss_huber
+from loss import loss_cosine_similarity, loss_mse, loss_rmse, loss_huber, loss_ssim
 
 def load_data(folder_path, prefix, skip=1):
     print(f"Skipping every {skip} files")
@@ -60,8 +60,8 @@ A_inverse = np.linalg.inv(A)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Training configuration')
-    parser.add_argument('--data_type', type=str, choices=['simulation', 'eigenvectors', 'eigenvectors_low', 'eigenvectors_high', 'simulation_low', 'pressure'], required=True, help='Type of data to use: simulation or eigenvectors')
-    parser.add_argument('--loss_function', type=str, choices=['cosine_similarity', 'mse', 'rmse', 'huber'], default='cosine_similarity', help='Loss function to use')
+    parser.add_argument('--data_type', type=str, choices=['simulation', 'eigenvectors', 'eigenvectors_low', 'eigenvectors_high', 'eigenvectors_noinverse', 'simulation_low', 'pressure', 'karman', 'random'], required=True, help='Type of data to use: simulation or eigenvectors')
+    parser.add_argument('--loss_function', type=str, choices=['cosine_similarity', 'mse', 'rmse', 'huber', 'ssim'], default='cosine_similarity', help='Loss function to use')
     parser.add_argument('--epochs', type=int, default=100, help='Number of epochs to train')
     parser.add_argument('--skip_files', type=int, default=1, help='Number of files to skip while loading data')
     parser.add_argument('--batch_size', type=int, default=64, help='Batch size for training')
@@ -102,6 +102,12 @@ if __name__ == "__main__":
     elif args.data_type == 'pressure':
         residual_data = load_data("data/pressure_data/", "RHS", args.skip_files)
         error_data = load_data("data/pressure_data/", "p", args.skip_files)
+    elif args.data_type == 'random':
+        residual_data = load_data("data/random_data/", "b", args.skip_files)
+        error_data = load_data("data/random_data/", "x", args.skip_files)
+    elif args.data_type == 'eigenvectors_noinverse':
+        residual_data = load_data("data/eigenvectors_data/", "b", args.skip_files)
+        error_data = load_data("data/eigenvectors_data/", "b", args.skip_files)
     elif args.data_type == 'pca':
         residual_data = load_data("data/simulation_data/", "res", args.skip_files)
 
@@ -112,6 +118,10 @@ if __name__ == "__main__":
         eigenvectors_output = load_data("data/eigenvectors_data/", "x", 1)
 
         error_data = torch.cat([error_data, eigenvectors_output], dim=0)
+
+    elif args.data_type == 'karman':
+        residual_data = load_data("data/karman_data/", "res", args.skip_files)
+        error_data = load_data("data/karman_data/", "e", args.skip_files)
         
     else:
         residual_data = load_data("data/simulation_data/", "res", args.skip_files)
@@ -200,6 +210,8 @@ if __name__ == "__main__":
         loss_fn = loss_rmse
     elif args.loss_function == 'huber':
         loss_fn = loss_huber
+    elif args.loss_function == 'ssim':
+        loss_fn = loss_ssim
     else:
         raise ValueError("Invalid loss function")
 
