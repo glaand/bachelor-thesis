@@ -1,5 +1,5 @@
 # Source Code of Bachelor Thesis
-## Bachelor Thesis: Improving Convergence of Conjugate Gradient
+## Bachelor Thesis: Improving Convergence of Conjugate Gradient with Deep Learning
 
 ## Modules
 
