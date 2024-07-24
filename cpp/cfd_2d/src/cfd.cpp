@@ -2,6 +2,7 @@
 #include <iostream>
 #include <chrono>
 #include "cfd.h"
+#include <mpi.h>
 
 namespace CFD {
     namespace ME_X {
@@ -363,6 +364,28 @@ namespace CFD {
     }
 
     void FluidSimulation::run() {
+        MPI_Init(&this->argc, &this->argv);
+        MPI_Initialized(&mpi_initialized);
+
+        if (mpi_initialized) {
+            MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+            MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+            if (world_size > 1) {
+                is_multiprocessing = true;
+                std::cout << "Hello from rank " << world_rank << " of " << world_size << " processes" << std::endl;
+                this->proc_grid_x = static_cast<int>(std::sqrt(world_size));
+                this->proc_grid_y = static_cast<int>(std::sqrt(world_size));
+                if (world_size > 2) {
+                    this->grid = StaggeredGrid(this->grid.imax / this->proc_grid_x, this->grid.jmax / this->proc_grid_y, this->grid.xlength, this->grid.ylength);
+                }
+                else {
+                    this->grid = StaggeredGrid(this->grid.imax / 2, this->grid.jmax / 2, this->grid.xlength, this->grid.ylength);
+                }
+                this->imax = this->grid.imax;
+                this->jmax = this->grid.jmax;
+            }
+        }      
+
         float last_saved = 0.0;
         std::string solver_name = "";
 
@@ -437,6 +460,11 @@ namespace CFD {
             solver_name = "DCDM";
             std::cout << "Solver: DCDM (" << this->grid.imax << "x" << this->grid.jmax << ")" << std::endl;
         }
+        else if (this->solver_type == SolverType::OMGPCG) {
+            pressure_solver = &FluidSimulation::solveWithOMGPCG;
+            solver_name = "A-Orthogonalised MGPCG";
+            std::cout << "Solver: OMGPCG (" << this->grid.imax << "x" << this->grid.jmax << ")" << std::endl;
+        }
         else {
             throw std::invalid_argument("Invalid solver type");
         }
@@ -450,10 +478,10 @@ namespace CFD {
             this->setBoundaryConditionsVelocityGeometry();
             this->computeF();
             this->computeG();
+            this->computeRHS();
             this->setBoundaryConditionsU();
             this->setBoundaryConditionsV();
             this->setBoundaryConditionsVelocityGeometry();
-            this->computeRHS();
             
             (this->*pressure_solver)();
 
@@ -461,7 +489,12 @@ namespace CFD {
 
             this->computeU();
             this->computeV();
-            std::cout << "Solver: " << solver_name << "\t" << " t: " << this->t << "\t" << " dt: " << this->dt << "\t" << " res: " << this->res_norm << "\t" << " p-norm: " << this->p_norm << "\t" << " it: " << this->it << "\t" << " it_wo_pressure_solver: " << this->it_wo_pressure_solver << "\t" << " n_cg: " << this->n_cg << "\t" << " duration: " << this->duration << std::endl;
+            if (is_multiprocessing) {
+                std::cout << "Solver(Rank=" << world_rank << "): " << solver_name << "\t" << " t: " << this->t << "\t" << " dt: " << this->dt << "\t" << " res: " << this->res_norm << "\t" << " p-norm: " << this->p_norm << "\t" << " it: " << this->it << "\t" << " it_wo_pressure_solver: " << this->it_wo_pressure_solver << "\t" << " n_cg: " << this->n_cg << "\t" << " duration: " << this->duration << std::endl;
+            }
+            else {
+                std::cout << "Solver: " << solver_name << "\t" << " t: " << this->t << "\t" << " dt: " << this->dt << "\t" << " res: " << this->res_norm << "\t" << " p-norm: " << this->p_norm << "\t" << " it: " << this->it << "\t" << " it_wo_pressure_solver: " << this->it_wo_pressure_solver << "\t" << " n_cg: " << this->n_cg << "\t" << " duration: " << this->duration << std::endl;
+            }
             if (this->t - last_saved >= this->save_interval) {
                 this->grid.interpolateVelocity();
                 if (!this->no_vtk) {
@@ -475,19 +508,16 @@ namespace CFD {
             this->it_wo_pressure_solver++;
         }
 
-        this->setBoundaryConditionsU();
-        this->setBoundaryConditionsV();
-        this->setBoundaryConditionsVelocityGeometry();
-
         this->grid.interpolateVelocity();
-
-        this->setBoundaryConditionsP();
-        this->setBoundaryConditionsPGeometry();
 
         this->res_norm_over_it_with_pressure_solver.conservativeResize(this->it);
         this->res_norm_over_it_without_pressure_solver.conservativeResize(this->it_wo_pressure_solver);
         this->res_norm_over_time.conservativeResize(this->duration);
         this->n_cg_over_it.conservativeResize(this->it_wo_pressure_solver);
+
+        if (mpi_initialized) {
+            MPI_Finalize();
+        }
 
         return;
     }

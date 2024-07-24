@@ -36,6 +36,9 @@ SolverType CFD::convertSolverType(const std::string& solver) {
     else if (solver == "dcdm") {
         return SolverType::DCDM;
     }
+    else if (solver == "omgpcg") {
+        return SolverType::OMGPCG;
+    }
     else {
         throw std::invalid_argument("Invalid solver type");
     }
@@ -95,4 +98,7 @@ FluidParams::FluidParams(std::string name, int argc, char* argv[])
     this->ml_model_path = this->argument_parser.get<std::string>("--ml_model_path");
     this->safety_factor = this->argument_parser.get<float>("--safety_factor");
     this->radius = this->argument_parser.get<float>("--radius");
+
+    this->argc = argc;
+    this->argv = argv;
 }

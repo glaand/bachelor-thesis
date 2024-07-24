@@ -90,7 +90,6 @@ void FluidWithObstacles2D::run() {
     }
 
 
-
     /*// loop through flag field and print with std::bitset
     for (int i = 0; i < this->grid.imax + 2; i++) {
         for (int j = 0; j < this->grid.jmax + 2; j++) {
@@ -102,7 +101,7 @@ void FluidWithObstacles2D::run() {
 
     for (int i = 0; i < this->grid.imax + 2; i++) {
         for (int j = 0; j < this->grid.jmax + 3; j++) {
-            this->grid.u(i, j) = 1.0;
+            this->grid.u(i, j) = 1.5;
             this->grid.F(i, j) = this->grid.u(i, j);
         }
     }

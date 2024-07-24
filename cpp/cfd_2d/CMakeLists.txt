@@ -3,6 +3,7 @@ project(cfd_2d)
 find_package(Eigen3 REQUIRED COMPONENTS CXX)
 find_package(Torch REQUIRED COMPONENTS CXX)
 find_package(OpenMP REQUIRED COMPONENTS CXX)
+find_package(MPI REQUIRED COMPONENTS CXX)
 
 set(CFD_2D_SOURCES
     src/cfd_params.cpp
@@ -20,6 +21,7 @@ set(CFD_2D_SOURCES
     src/solvers/ml.cpp
     src/solvers/richardson.cpp
     src/solvers/dcdm.cpp
+    src/solvers/omgpcg.cpp
 )
 
 # Compile the CFD library
@@ -45,6 +47,7 @@ target_link_libraries(
     VTK::vtksys
     torch
     OpenMP::OpenMP_CXX
+    MPI::MPI_CXX
 )
 
 # Compile CFD Programs 
@@ -71,6 +74,12 @@ add_executable(plane_shear_flow_2d prog/plane_shear_flow_2d.cpp)
 target_compile_options(plane_shear_flow_2d PRIVATE -fPIC)
 target_include_directories(plane_shear_flow_2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(plane_shear_flow_2d cfd_2d)
+
+# Parallel LDC
+add_executable(parallel_ldc prog/parallel_ldc.cpp)
+target_compile_options(parallel_ldc PRIVATE -fPIC)
+target_include_directories(parallel_ldc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(parallel_ldc cfd_2d)
 
 # Tests
 add_executable(test_multigrid tests/test_multigrid.cpp)

@@ -1,12 +1,11 @@
 #include "cfd.h"
 #include <limits>
+#include "mpi.h"
 
 using namespace CFD;
 
-void FluidSimulation::solveWithDCDM() {
+void FluidSimulation::solveWithOMGPCG() {
     this->resetPressure();
-    this->setBoundaryConditionsP();
-    this->setBoundaryConditionsPGeometry();
 
     // reset norm check
     this->res_norm = 0.0;
@@ -36,8 +35,12 @@ void FluidSimulation::solveWithDCDM() {
 
     int n_ml = 0;
     int n_mgpcg = 0;
+    int local_done = 0;
+    int global_done = 0;
+    bool all_equal = true;
 
     while ((this->res_norm > this->eps || this->res_norm == 0) && this->n_cg < this->maxiterations_cg) {
+        MPI_Allreduce(&local_done, &global_done, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
         this->setBoundaryConditionsP();
         this->setBoundaryConditionsPGeometry();
         this->alpha_top_cg = 0.0;
@@ -45,35 +48,12 @@ void FluidSimulation::solveWithDCDM() {
         this->beta_top_cg= 0.0;
         this->res_norm = 0.0;
 
-        if (this->n_cg >= 0) {
-            for(int i = 1; i < this->grid.imax + 1; i++) {
-                for(int j = 1; j < this->grid.jmax + 1; j++) {
-                    this->grid.input_ml[i][j] = this->preconditioner.RHS(i,j);
-                }
+        this->preconditioner.p.setZero();
+        Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, this->num_sweeps);
+        for (int i = 1; i < this->grid.imax + 1; i++) {
+            for (int j = 1; j < this->grid.jmax + 1; j++) {
+                this->grid.search_vector(i,j) = this->preconditioner.p(i,j);
             }
-            this->grid.output_ml = this->model.forward({ this->grid.input_ml.to(torch::kCUDA).unsqueeze(0).unsqueeze(0) }).toTensor().to(torch::kCPU).squeeze(0).squeeze(0);
-
-            auto output_acc = this->grid.output_ml.accessor<float,2>();
-
-            for (int i = 1; i < this->grid.imax + 1; i++) {
-                for (int j = 1; j < this->grid.jmax + 1; j++) {
-                    // ML inference
-                    this->grid.search_vector(i,j) = output_acc[i][j];
-                }
-            }
-            n_ml++;
-        }
-        else {
-            this->preconditioner.p.setZero();
-            for (int k = 0; k < this->num_sweeps; k++) {
-                Multigrid::vcycle(this->multigrid_hierarchy_preconditioner, this->multigrid_hierarchy_preconditioner->numLevels() - 1, this->omg, this->num_sweeps);
-            }
-            for (int i = 1; i < this->grid.imax + 1; i++) {
-                for (int j = 1; j < this->grid.jmax + 1; j++) {
-                    this->grid.search_vector(i,j) = this->preconditioner.p(i,j);
-                }
-            }
-            n_mgpcg++;
         }
         if (this->save_ml) {
             this->saveMLData();
@@ -112,7 +92,6 @@ void FluidSimulation::solveWithDCDM() {
             }
         }
         this->alpha_cg = this->alpha_top_cg/this->alpha_bottom_cg;
-
         if (std::isnan(this->alpha_cg)) {
             this->alpha_cg = 0.0;
         }
@@ -142,10 +121,27 @@ void FluidSimulation::solveWithDCDM() {
 
         this->it++;
         this->n_cg++;
+
+        // Check if last 100 residuals are the same
+        if (n_cg > 0) {
+            all_equal = true;
+            for (size_t i = this->it - 100; i < this->it; i++) {
+                if (std::abs(res_norm_over_it_with_pressure_solver(i) - res_norm_over_it_with_pressure_solver(this->it - 100)) > 1e-6) {
+                    all_equal = false;
+                    break;
+                }
+            }
+            if (all_equal) {
+                break;
+            }
+        }
     }
-    std::cout << "ML: " << n_ml << " MGPCG: " << n_mgpcg << std::endl;
     this->n_cg_over_it(this->it_wo_pressure_solver) = this->n_cg;
+    local_done = 1;
+    while (global_done != this->world_size) {
+        MPI_Allreduce(&local_done, &global_done, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+        this->setBoundaryConditionsP();
+    }
     this->setBoundaryConditionsP();
     this->setBoundaryConditionsPGeometry();
-
 }

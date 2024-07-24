@@ -126,6 +126,10 @@ void Multigrid::relax(StaggeredGrid *grid, int numSweeps, float omg) {
                         grid->RHS(i,j)*grid->dx2dy2 - grid->dx2*(grid->p(i+1,j) + grid->p(i-1,j)) - grid->dy2*(grid->p(i,j+1) + grid->p(i,j-1))
                     )
                 );
+                // if nan, reset to old value
+                if (std::isnan(grid->p(i,j))) {
+                    grid->p(i,j) = grid->po(i,j);
+                }
             }
         }
     }
